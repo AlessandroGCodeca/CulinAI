@@ -4,16 +4,17 @@ import { Recipe, DietaryFilters, Language } from "../types";
 // Setup API
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
-// UPDATED: Use the models confirmed in your JSON list
-const MODELS_TO_TRY = ["gemini-2.0-flash", "gemini-2.5-flash"];
+// 1. Text Models (Your working list)
+const TEXT_MODELS = ["gemini-2.0-flash", "gemini-2.5-flash"];
 
-// --- SMART HELPER: Tries models one by one until one works ---
+// 2. Image Model (Enabled!)
+const IMAGE_MODEL = "imagen-4.0-fast-generate-001";
+
+// --- SMART HELPER: Tries models one by one ---
 async function generateWithFallback(prompt: string | any[], systemInstruction?: string): Promise<string> {
   let lastError;
-  
-  for (const modelName of MODELS_TO_TRY) {
+  for (const modelName of TEXT_MODELS) {
     try {
-      console.log(`Attempting with model: ${modelName}`);
       const model = genAI.getGenerativeModel({ 
         model: modelName,
         systemInstruction: systemInstruction,
@@ -24,14 +25,12 @@ async function generateWithFallback(prompt: string | any[], systemInstruction?: 
       const response = await result.response;
       const text = response.text();
       
-      if (text) return text; // Success!
+      if (text) return text; 
     } catch (error: any) {
       console.warn(`Model ${modelName} failed:`, error.message);
       lastError = error;
-      // If error is NOT a 404 (Not Found), it might be a real issue (like quota), so we stop.
-      // But for 404s, we continue to the next model.
       if (!error.message.includes("404") && !error.message.includes("not found")) {
-         // Continue anyway to be safe
+         // Continue to be safe
       }
     }
   }
@@ -70,7 +69,7 @@ export const analyzeFridgeImage = async (base64Images: string[], language: Langu
     return JSON.parse(cleanText);
   } catch (error) {
     console.error("Error analyzing image:", error);
-    alert("AI Scan Error: " + error);
+    // Don't alert here to avoid spamming the user if one part fails
     return [];
   }
 };
@@ -236,12 +235,32 @@ export const getChefTips = async (recipeTitle: string, ingredients: string[], la
     }
 };
 
-// Disabled functions
-export const generateSpeech = async (_text: string): Promise<ArrayBuffer | null> => {
-    return null; 
+// --- ENABLED IMAGE GENERATION ---
+export const generateRecipeImage = async (title: string, size: '1K' | '2K' | '4K' = '1K'): Promise<string | null> => {
+    try {
+        // Use Imagen 4 Fast
+        const model = genAI.getGenerativeModel({ model: IMAGE_MODEL });
+        
+        const result = await model.generateContent({
+          contents: [{ 
+            role: 'user', 
+            parts: [{ text: `A professional, appetizing food photography shot of ${title}. High resolution, studio lighting, photorealistic, 4k.` }] 
+          }]
+        });
+
+        const response = result.response;
+        // Imagen usually returns the image data in the parts
+        if (response.candidates && response.candidates[0].content.parts[0].inlineData) {
+            return `data:image/png;base64,${response.candidates[0].content.parts[0].inlineData.data}`;
+        }
+        return null;
+    } catch (error) {
+        console.error("Image generation error:", error);
+        return null; // Fail silently so the app keeps working
+    }
 };
 
-export const generateRecipeImage = async (_title: string, _size: '1K' | '2K' | '4K' = '1K'): Promise<string | null> => {
+export const generateSpeech = async (_text: string): Promise<ArrayBuffer | null> => {
     return null; 
 };
 
