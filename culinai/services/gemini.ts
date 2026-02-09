@@ -4,8 +4,8 @@ import { Recipe, DietaryFilters, Language } from "../types";
 // Setup API
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
-// List of models to try in order of preference
-const MODELS_TO_TRY = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"];
+// UPDATED: Use the models confirmed in your JSON list
+const MODELS_TO_TRY = ["gemini-2.0-flash", "gemini-2.5-flash"];
 
 // --- SMART HELPER: Tries models one by one until one works ---
 async function generateWithFallback(prompt: string | any[], systemInstruction?: string): Promise<string> {
@@ -31,8 +31,7 @@ async function generateWithFallback(prompt: string | any[], systemInstruction?: 
       // If error is NOT a 404 (Not Found), it might be a real issue (like quota), so we stop.
       // But for 404s, we continue to the next model.
       if (!error.message.includes("404") && !error.message.includes("not found")) {
-         // Optional: continue anyway just to be safe, or throw here.
-         // Let's continue to be safe.
+         // Continue anyway to be safe
       }
     }
   }
@@ -247,9 +246,8 @@ export const generateRecipeImage = async (_title: string, _size: '1K' | '2K' | '
 };
 
 export const createChefChat = (language: Language = 'en') => {
-  // For chat, we simply default to the most robust model immediately to avoid complexity
   const model = genAI.getGenerativeModel({ 
-    model: "gemini-pro", // Fallback to 1.0 Pro for Chat as it's safest
+    model: "gemini-2.0-flash", 
     systemInstruction: `You are CulinAI, a world-class chef and culinary assistant. Help users with cooking tips, substitutions, and techniques. Be concise and encouraging. IMPORTANT: You must reply in the ${language} language.`
   });
   return model.startChat();
