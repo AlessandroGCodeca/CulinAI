@@ -1,9 +1,8 @@
-
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Recipe, DietaryFilters, Language } from "../types";
 
-// Setup API - Stable Version
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+// Setup Standard API
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
 // Helper to convert file to base64
 export const fileToGenerativePart = async (file: File): Promise<string> => {
@@ -21,38 +20,31 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 
 export const analyzeFridgeImage = async (base64Images: string[], language: Language = 'en'): Promise<string[]> => {
   try {
-    const parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> = base64Images.map(base64 => ({
+    // Use the stable 1.5 Flash model
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    const imageParts = base64Images.map(base64 => ({
       inlineData: {
-        mimeType: 'image/jpeg',
-        data: base64
-      }
+        data: base64,
+        mimeType: "image/jpeg",
+      },
     }));
 
-    parts.push({
-      text: `Analyze these images of a fridge, pantry, spices, and other food items. Identify all visible ingredients from all images. Combine them into a single deduplicated list. 
+    const prompt = `Analyze these images of a fridge, pantry, spices, and other food items. Identify all visible ingredients from all images. Combine them into a single deduplicated list. 
       IMPORTANT: Return the ingredient names strictly in the ${language} language.
-      Return strictly a JSON array of strings containing the names of the ingredients found. Do not include Markdown formatting.`
-    });
+      Return strictly a JSON array of strings containing the names of the ingredients found. Do not include Markdown formatting.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
-      contents: {
-        parts: parts
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.STRING
-          }
-        }
-      }
-    });
+    const result = await model.generateContent([prompt, ...imageParts]);
+    const response = await result.response;
+    const text = response.text();
     
-    const text = response.text;
     if (!text) return [];
-    return JSON.parse(text);
+    // Clean up any potential markdown before parsing
+    const cleanText = text.replace(/```json\n?|```/g, '');
+    return JSON.parse(cleanText);
   } catch (error) {
     console.error("Error analyzing image:", error);
     alert("AI Scan Error: " + error);
@@ -118,15 +110,15 @@ export const searchRecipes = async (ingredients: string[], filters: DietaryFilte
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      }
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" }
     });
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
 
-    const text = response.text;
     if (!text) return [];
     const cleanText = text.replace(/```json\n?|```/g, '');
     return JSON.parse(cleanText);
@@ -164,7 +156,7 @@ export const searchRecipesByQuery = async (query: string, filters: DietaryFilter
     ${cuisineText}
     ${timeText}
     
-    Use Google Search to find 4 high-quality, real recipes that best match these criteria. Include specific quantities for ingredients.
+    Use Google Search (simulated) to find 4 high-quality, real recipes that best match these criteria. Include specific quantities for ingredients.
     IMPORTANT: Provide the response strictly in the ${language} language.
     
     Return the result strictly as a JSON list of objects matching this structure:
@@ -200,15 +192,15 @@ export const searchRecipesByQuery = async (query: string, filters: DietaryFilter
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      }
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" }
     });
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
 
-    const text = response.text;
     if (!text) return [];
     const cleanText = text.replace(/```json\n?|```/g, '');
     return JSON.parse(cleanText);
@@ -231,19 +223,15 @@ export const getChefTips = async (recipeTitle: string, ingredients: string[], la
     `;
     
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-1.5-flash',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                }
-            }
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            generationConfig: { responseMimeType: "application/json" }
         });
         
-        const text = response.text;
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+
         if (!text) return [];
         return JSON.parse(text);
     } catch (error) {
@@ -252,7 +240,7 @@ export const getChefTips = async (recipeTitle: string, ingredients: string[], la
     }
 };
 
-// Disabled functions to prevent errors
+// Disabled functions
 export const generateSpeech = async (_text: string): Promise<ArrayBuffer | null> => {
     return null; 
 };
@@ -262,11 +250,9 @@ export const generateRecipeImage = async (_title: string, _size: '1K' | '2K' | '
 };
 
 export const createChefChat = (language: Language = 'en') => {
-  const freshAi = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-  return freshAi.chats.create({
-    model: 'gemini-1.5-flash',
-    config: {
-      systemInstruction: `You are CulinAI, a world-class chef and culinary assistant. Help users with cooking tips, substitutions, and techniques. Be concise and encouraging. IMPORTANT: You must reply in the ${language} language.`
-    }
+  const model = genAI.getGenerativeModel({ 
+    model: "gemini-1.5-flash",
+    systemInstruction: `You are CulinAI, a world-class chef and culinary assistant. Help users with cooking tips, substitutions, and techniques. Be concise and encouraging. IMPORTANT: You must reply in the ${language} language.`
   });
+  return model.startChat();
 };
