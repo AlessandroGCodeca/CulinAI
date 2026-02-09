@@ -1,0 +1,8 @@
+{
+  "name": "CulinAI",
+  "description": "A smart culinary assistant that analyzes your fridge content to suggest recipes, complete with a hands-free cooking mode.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
