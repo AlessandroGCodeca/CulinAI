@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Recipe, DietaryFilters, Language } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
 // Helper to convert file to base64
 export const fileToGenerativePart = async (file: File): Promise<string> => {
