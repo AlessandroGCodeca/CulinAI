@@ -49,7 +49,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({ initialMessage, onClearInitial
     try {
       // Use the stable Google AI SDK
       const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       
       const chat = model.startChat({
         history: messages.map(m => ({
