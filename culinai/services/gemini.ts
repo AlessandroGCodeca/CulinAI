@@ -7,8 +7,8 @@ const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 // 1. Text Models (Your working list)
 const TEXT_MODELS = ["gemini-2.0-flash", "gemini-2.5-flash"];
 
-// 2. Image Model (Enabled!)
-const IMAGE_MODEL = "imagen-4.0-fast-generate-001";
+// 2. Image Model (Updated to the one that supports generateContent)
+const IMAGE_MODEL = "gemini-2.5-flash-image";
 
 // --- SMART HELPER: Tries models one by one ---
 async function generateWithFallback(prompt: string | any[], systemInstruction?: string): Promise<string> {
@@ -69,7 +69,6 @@ export const analyzeFridgeImage = async (base64Images: string[], language: Langu
     return JSON.parse(cleanText);
   } catch (error) {
     console.error("Error analyzing image:", error);
-    // Don't alert here to avoid spamming the user if one part fails
     return [];
   }
 };
@@ -238,18 +237,18 @@ export const getChefTips = async (recipeTitle: string, ingredients: string[], la
 // --- ENABLED IMAGE GENERATION ---
 export const generateRecipeImage = async (title: string, size: '1K' | '2K' | '4K' = '1K'): Promise<string | null> => {
     try {
-        // Use Imagen 4 Fast
+        // Use Gemini 2.5 Flash Image (Nano Banana) which supports generateContent
         const model = genAI.getGenerativeModel({ model: IMAGE_MODEL });
         
         const result = await model.generateContent({
           contents: [{ 
             role: 'user', 
-            parts: [{ text: `A professional, appetizing food photography shot of ${title}. High resolution, studio lighting, photorealistic, 4k.` }] 
+            parts: [{ text: `Generate a photorealistic, high-quality food photography image of: ${title}` }] 
           }]
         });
 
         const response = result.response;
-        // Imagen usually returns the image data in the parts
+        // Check for inline data (Base64)
         if (response.candidates && response.candidates[0].content.parts[0].inlineData) {
             return `data:image/png;base64,${response.candidates[0].content.parts[0].inlineData.data}`;
         }
