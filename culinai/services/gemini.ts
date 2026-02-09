@@ -1,11 +1,43 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Recipe, DietaryFilters, Language } from "../types";
 
-// Setup Standard API
+// Setup API
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
-// SWITCHED TO PRO MODEL (More reliable for your account)
-const MODEL_NAME = "gemini-1.5-pro";
+// List of models to try in order of preference
+const MODELS_TO_TRY = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"];
+
+// --- SMART HELPER: Tries models one by one until one works ---
+async function generateWithFallback(prompt: string | any[], systemInstruction?: string): Promise<string> {
+  let lastError;
+  
+  for (const modelName of MODELS_TO_TRY) {
+    try {
+      console.log(`Attempting with model: ${modelName}`);
+      const model = genAI.getGenerativeModel({ 
+        model: modelName,
+        systemInstruction: systemInstruction,
+        generationConfig: { responseMimeType: "application/json" }
+      });
+      
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      
+      if (text) return text; // Success!
+    } catch (error: any) {
+      console.warn(`Model ${modelName} failed:`, error.message);
+      lastError = error;
+      // If error is NOT a 404 (Not Found), it might be a real issue (like quota), so we stop.
+      // But for 404s, we continue to the next model.
+      if (!error.message.includes("404") && !error.message.includes("not found")) {
+         // Optional: continue anyway just to be safe, or throw here.
+         // Let's continue to be safe.
+      }
+    }
+  }
+  throw new Error(`All models failed. Last error: ${lastError?.message}`);
+}
 
 // Helper to convert file to base64
 export const fileToGenerativePart = async (file: File): Promise<string> => {
@@ -23,11 +55,6 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 
 export const analyzeFridgeImage = async (base64Images: string[], language: Language = 'en'): Promise<string[]> => {
   try {
-    const model = genAI.getGenerativeModel({ 
-      model: MODEL_NAME,
-      generationConfig: { responseMimeType: "application/json" }
-    });
-
     const imageParts = base64Images.map(base64 => ({
       inlineData: {
         data: base64,
@@ -39,16 +66,12 @@ export const analyzeFridgeImage = async (base64Images: string[], language: Langu
       IMPORTANT: Return the ingredient names strictly in the ${language} language.
       Return strictly a JSON array of strings containing the names of the ingredients found. Do not include Markdown formatting.`;
 
-    const result = await model.generateContent([prompt, ...imageParts]);
-    const response = await result.response;
-    const text = response.text();
-    
-    if (!text) return [];
+    const text = await generateWithFallback([prompt, ...imageParts]);
     const cleanText = text.replace(/```json\n?|```/g, '');
     return JSON.parse(cleanText);
   } catch (error) {
     console.error("Error analyzing image:", error);
-    alert(`AI Error (${MODEL_NAME}): ` + error);
+    alert("AI Scan Error: " + error);
     return [];
   }
 };
@@ -111,21 +134,12 @@ export const searchRecipes = async (ingredients: string[], filters: DietaryFilte
   `;
 
   try {
-    const model = genAI.getGenerativeModel({ 
-      model: MODEL_NAME,
-      generationConfig: { responseMimeType: "application/json" }
-    });
-    
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    if (!text) return [];
+    const text = await generateWithFallback(prompt);
     const cleanText = text.replace(/```json\n?|```/g, '');
     return JSON.parse(cleanText);
   } catch (error) {
     console.error("Error finding recipes:", error);
-    alert(`Recipe Error (${MODEL_NAME}): ` + error);
+    alert("Recipe Error: " + error);
     return [];
   }
 };
@@ -193,21 +207,12 @@ export const searchRecipesByQuery = async (query: string, filters: DietaryFilter
   `;
 
   try {
-    const model = genAI.getGenerativeModel({ 
-      model: MODEL_NAME,
-      generationConfig: { responseMimeType: "application/json" }
-    });
-    
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    if (!text) return [];
+    const text = await generateWithFallback(prompt);
     const cleanText = text.replace(/```json\n?|```/g, '');
     return JSON.parse(cleanText);
   } catch (error) {
     console.error("Error searching recipes:", error);
-    alert(`Search Error (${MODEL_NAME}): ` + error);
+    alert("Search Error: " + error);
     return [];
   }
 };
@@ -224,16 +229,7 @@ export const getChefTips = async (recipeTitle: string, ingredients: string[], la
     `;
     
     try {
-        const model = genAI.getGenerativeModel({ 
-            model: MODEL_NAME,
-            generationConfig: { responseMimeType: "application/json" }
-        });
-        
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-
-        if (!text) return [];
+        const text = await generateWithFallback(prompt);
         return JSON.parse(text);
     } catch (error) {
         console.error("Error fetching tips:", error);
@@ -251,8 +247,9 @@ export const generateRecipeImage = async (_title: string, _size: '1K' | '2K' | '
 };
 
 export const createChefChat = (language: Language = 'en') => {
+  // For chat, we simply default to the most robust model immediately to avoid complexity
   const model = genAI.getGenerativeModel({ 
-    model: MODEL_NAME,
+    model: "gemini-pro", // Fallback to 1.0 Pro for Chat as it's safest
     systemInstruction: `You are CulinAI, a world-class chef and culinary assistant. Help users with cooking tips, substitutions, and techniques. Be concise and encouraging. IMPORTANT: You must reply in the ${language} language.`
   });
   return model.startChat();
