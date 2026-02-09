@@ -3,6 +3,8 @@ import { Recipe, DietaryFilters, Language } from "../types";
 
 // Setup Standard API
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+// Use the specific pinned version which is more reliable than the alias
+const MODEL_NAME = "gemini-1.5-flash-001";
 
 // Helper to convert file to base64
 export const fileToGenerativePart = async (file: File): Promise<string> => {
@@ -20,9 +22,8 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 
 export const analyzeFridgeImage = async (base64Images: string[], language: Language = 'en'): Promise<string[]> => {
   try {
-    // Use the stable 1.5 Flash model
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
+      model: MODEL_NAME,
       generationConfig: { responseMimeType: "application/json" }
     });
 
@@ -42,7 +43,6 @@ export const analyzeFridgeImage = async (base64Images: string[], language: Langu
     const text = response.text();
     
     if (!text) return [];
-    // Clean up any potential markdown before parsing
     const cleanText = text.replace(/```json\n?|```/g, '');
     return JSON.parse(cleanText);
   } catch (error) {
@@ -111,7 +111,7 @@ export const searchRecipes = async (ingredients: string[], filters: DietaryFilte
 
   try {
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
+      model: MODEL_NAME,
       generationConfig: { responseMimeType: "application/json" }
     });
     
@@ -193,7 +193,7 @@ export const searchRecipesByQuery = async (query: string, filters: DietaryFilter
 
   try {
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
+      model: MODEL_NAME,
       generationConfig: { responseMimeType: "application/json" }
     });
     
@@ -224,7 +224,7 @@ export const getChefTips = async (recipeTitle: string, ingredients: string[], la
     
     try {
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
+            model: MODEL_NAME,
             generationConfig: { responseMimeType: "application/json" }
         });
         
@@ -251,7 +251,7 @@ export const generateRecipeImage = async (_title: string, _size: '1K' | '2K' | '
 
 export const createChefChat = (language: Language = 'en') => {
   const model = genAI.getGenerativeModel({ 
-    model: "gemini-1.5-flash",
+    model: MODEL_NAME,
     systemInstruction: `You are CulinAI, a world-class chef and culinary assistant. Help users with cooking tips, substitutions, and techniques. Be concise and encouraging. IMPORTANT: You must reply in the ${language} language.`
   });
   return model.startChat();
