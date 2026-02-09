@@ -1,175 +1,139 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, User, Loader2, Sparkles, ChefHat } from 'lucide-react';
-import { Chat } from '@google/genai';
-import { createChefChat } from '../services/gemini';
-import { ChatMessage } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { MessageCircle, X, Send, Loader2, ChefHat } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-interface ChatBotProps {
-  initialMessage?: string;
-  onClearInitialMessage?: () => void;
-}
-
-export const ChatBot: React.FC<ChatBotProps> = ({ initialMessage, onClearInitialMessage }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+export const ChatBot: React.FC = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([
+    { role: 'assistant', content: "Hi! I'm CulinAI. Ask me anything about cooking, ingredients, or techniques!" }
+  ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const chatSessionRef = useRef<Chat | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const hasProcessedInitial = useRef(false);
 
-  // Define sendMessage outside useEffect to be accessible
-  const sendMessage = async (text: string) => {
-    if (!text.trim() || !chatSessionRef.current) return;
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
-    // Optimistically add user message
-    setMessages(prev => [...prev, { role: 'user', text }]);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isOpen]);
+
+  const handleSend = async () => {
+    if (!input.trim()) return;
+
+    const userMessage = input;
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
 
     try {
-      const result = await chatSessionRef.current.sendMessage({ message: text });
-      const responseText = result.text || "I'm sorry, I couldn't generate a response.";
+      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       
-      setMessages(prev => [...prev, { role: 'model', text: responseText }]);
+      const chat = model.startChat({
+        history: messages.map(m => ({
+          role: m.role === 'user' ? 'user' : 'model',
+          parts: [{ text: m.content }]
+        }))
+      });
+
+      const result = await chat.sendMessage(userMessage);
+      const response = await result.response;
+      const text = response.text();
+
+      setMessages(prev => [...prev, { role: 'assistant', content: text }]);
     } catch (error) {
       console.error("Chat error:", error);
-      setMessages(prev => [...prev, { role: 'model', text: "Sorry, something went wrong. Please try again.", isError: true }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I'm having trouble connecting to the kitchen right now. Please try again." }]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    // Initialize chat session
-    chatSessionRef.current = createChefChat();
-    
-    // Initial welcome message
-    const welcomeText = initialMessage 
-        ? "Hello! I'm ready to help with your cooking question."
-        : "Hello! I am your AI Chef assistant. Ask me anything about recipes, cooking techniques, or ingredient substitutions!";
-        
-    setMessages([{ role: 'model', text: welcomeText }]);
-
-    // Handle initial message passed via props
-    if (initialMessage && !hasProcessedInitial.current) {
-        hasProcessedInitial.current = true;
-        setTimeout(() => {
-            sendMessage(initialMessage);
-            if (onClearInitialMessage) onClearInitialMessage();
-        }, 500);
-    }
-  }, []);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
-
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (input.trim() && !isLoading) {
-        const text = input.trim();
-        setInput('');
-        sendMessage(text);
-    }
-  };
-
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] md:h-[800px] max-w-5xl mx-auto w-full bg-slate-50 rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200/60 relative my-4 md:my-8">
-      {/* Header */}
-      <div className="px-6 py-5 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-4">
-            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-3 rounded-2xl shadow-lg shadow-emerald-500/20">
-                <ChefHat className="text-white" size={24} strokeWidth={2.5} />
+    <>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className="fixed bottom-20 right-4 w-[90vw] max-w-[400px] h-[500px] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden"
+          >
+            {/* Header */}
+            <div className="bg-emerald-600 p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-white">
+                <ChefHat className="w-5 h-5" />
+                <span className="font-semibold">Chef CulinAI</span>
+              </div>
+              <button 
+                onClick={() => setIsOpen(false)}
+                className="text-white/80 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div>
-                <h2 className="text-xl font-black text-slate-800 tracking-tight">Chef AI</h2>
-                <div className="flex items-center gap-1.5">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Online</p>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-900">
+              {messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[80%] rounded-2xl p-3 text-sm ${
+                      msg.role === 'user'
+                        ? 'bg-emerald-600 text-white rounded-tr-none'
+                        : 'bg-slate-800 text-slate-100 rounded-tl-none border border-slate-700'
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
                 </div>
+              ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-slate-800 rounded-2xl rounded-tl-none p-3 border border-slate-700">
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
             </div>
-        </div>
-      </div>
 
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 bg-slate-50 scroll-smooth">
-         {messages.map((msg, idx) => (
-             <div 
-                key={idx} 
-                className={`flex gap-4 md:gap-6 ${msg.role === 'user' ? 'flex-row-reverse' : ''} animate-slide-up`}
-             >
-                 {/* Avatar */}
-                 <div className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm border-2 ${
-                     msg.role === 'user' 
-                     ? 'bg-white border-slate-100' 
-                     : 'bg-gradient-to-br from-emerald-500 to-teal-600 border-transparent'
-                 }`}>
-                     {msg.role === 'user' 
-                        ? <User size={20} className="text-slate-400" /> 
-                        : <Sparkles size={20} className="text-white" />
-                     }
-                 </div>
-
-                 {/* Bubble */}
-                 <div className={`flex flex-col max-w-[80%] md:max-w-[70%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                    <div className={`px-6 py-4 md:px-8 md:py-6 shadow-sm relative group transition-all duration-200 hover:shadow-md ${
-                        msg.role === 'user'
-                        ? 'bg-slate-900 text-white rounded-[2rem] rounded-tr-sm'
-                        : msg.isError 
-                            ? 'bg-red-50 text-red-800 border border-red-100 rounded-[2rem] rounded-tl-sm'
-                            : 'bg-white text-slate-600 border border-slate-100 rounded-[2rem] rounded-tl-sm'
-                    }`}>
-                        <p className={`text-[15px] md:text-base leading-relaxed font-medium whitespace-pre-wrap ${msg.role === 'user' ? 'text-slate-100' : 'text-slate-600'}`}>
-                            {msg.text}
-                        </p>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-300 mt-2 px-2 uppercase tracking-widest animate-fade-in">
-                        {msg.role === 'user' ? 'You' : 'Chef'}
-                    </span>
-                 </div>
-             </div>
-         ))}
-         
-         {isLoading && (
-             <div className="flex gap-4 md:gap-6 animate-fade-in">
-                 <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0 shadow-sm">
-                     <Loader2 size={20} className="text-white animate-spin" />
-                 </div>
-                 <div className="bg-white px-8 py-6 rounded-[2rem] rounded-tl-sm shadow-sm border border-slate-100 flex items-center gap-3">
-                     <div className="flex space-x-1.5">
-                         <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                         <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                         <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                     </div>
-                 </div>
-             </div>
-         )}
-         <div ref={messagesEndRef} className="h-4" />
-      </div>
-
-      {/* Input Area */}
-      <div className="p-4 md:p-6 bg-white border-t border-slate-100">
-        <form onSubmit={handleSend} className="relative flex items-end gap-3 max-w-4xl mx-auto">
-            <div className="relative flex-1 group">
+            {/* Input */}
+            <div className="p-4 bg-slate-800 border-t border-slate-700">
+              <div className="flex gap-2">
                 <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Ask about ingredients, techniques..."
-                    className="w-full pl-6 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:outline-none focus:border-emerald-500/50 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all text-slate-700 font-medium text-lg placeholder:text-slate-400"
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                  placeholder="Ask for cooking tips..."
+                  className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 placeholder-slate-500"
                 />
+                <button
+                  onClick={handleSend}
+                  disabled={isLoading || !input.trim()}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Send className="w-5 h-5" />
+                </button>
+              </div>
             </div>
-            <button
-                type="submit"
-                disabled={!input.trim() || isLoading}
-                className="p-4 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-emerald-600/20 active:scale-95 hover:shadow-xl hover:-translate-y-0.5"
-            >
-                <Send size={24} strokeWidth={2.5} />
-            </button>
-        </form>
-      </div>
-    </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <button
+        onClick={() => setIsOpen(true)}
+        className={`fixed bottom-6 right-6 p-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-lg transition-all z-40 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
+      >
+        <MessageCircle className="w-6 h-6" />
+      </button>
+    </>
   );
 };
