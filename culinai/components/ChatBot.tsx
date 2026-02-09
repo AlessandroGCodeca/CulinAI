@@ -3,7 +3,13 @@ import { MessageCircle, X, Send, Loader2, ChefHat } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export const ChatBot: React.FC = () => {
+// FIX: Define what data the ChatBot accepts
+interface ChatBotProps {
+  initialMessage?: string;
+  onClearInitialMessage?: () => void;
+}
+
+export const ChatBot: React.FC<ChatBotProps> = ({ initialMessage, onClearInitialMessage }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([
     { role: 'assistant', content: "Hi! I'm CulinAI. Ask me anything about cooking, ingredients, or techniques!" }
@@ -11,6 +17,18 @@ export const ChatBot: React.FC = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // FIX: Open chat and pre-fill input when "Ask Chef" is clicked in the app
+  useEffect(() => {
+    if (initialMessage) {
+      setIsOpen(true);
+      setInput(initialMessage);
+      // Clear the message from App state so it doesn't keep reappearing
+      if (onClearInitialMessage) {
+        onClearInitialMessage();
+      }
+    }
+  }, [initialMessage, onClearInitialMessage]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -29,6 +47,7 @@ export const ChatBot: React.FC = () => {
     setIsLoading(true);
 
     try {
+      // Use the stable Google AI SDK
       const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       
