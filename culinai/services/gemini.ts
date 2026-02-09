@@ -3,8 +3,9 @@ import { Recipe, DietaryFilters, Language } from "../types";
 
 // Setup Standard API
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
-// Use the specific pinned version which is more reliable than the alias
-const MODEL_NAME = "gemini-1.5-flash-001";
+
+// SWITCHED TO PRO MODEL (More reliable for your account)
+const MODEL_NAME = "gemini-1.5-pro";
 
 // Helper to convert file to base64
 export const fileToGenerativePart = async (file: File): Promise<string> => {
@@ -47,7 +48,7 @@ export const analyzeFridgeImage = async (base64Images: string[], language: Langu
     return JSON.parse(cleanText);
   } catch (error) {
     console.error("Error analyzing image:", error);
-    alert("AI Scan Error: " + error);
+    alert(`AI Error (${MODEL_NAME}): ` + error);
     return [];
   }
 };
@@ -124,7 +125,7 @@ export const searchRecipes = async (ingredients: string[], filters: DietaryFilte
     return JSON.parse(cleanText);
   } catch (error) {
     console.error("Error finding recipes:", error);
-    alert("Recipe Error: " + error);
+    alert(`Recipe Error (${MODEL_NAME}): ` + error);
     return [];
   }
 };
@@ -206,7 +207,7 @@ export const searchRecipesByQuery = async (query: string, filters: DietaryFilter
     return JSON.parse(cleanText);
   } catch (error) {
     console.error("Error searching recipes:", error);
-    alert("Search Error: " + error);
+    alert(`Search Error (${MODEL_NAME}): ` + error);
     return [];
   }
 };
