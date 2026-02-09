@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Recipe, DietaryFilters, Language } from "../types";
 
+// FIX 1: Updated to use Vite environment variable
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
 // Helper to convert file to base64
@@ -34,7 +35,7 @@ export const analyzeFridgeImage = async (base64Images: string[], language: Langu
     });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.0-flash',
       contents: {
         parts: parts
       },
@@ -45,9 +46,6 @@ export const analyzeFridgeImage = async (base64Images: string[], language: Langu
           items: {
             type: Type.STRING
           }
-        },
-        thinkingConfig: {
-          thinkingBudget: 16000 // Reduced slightly for speed on simpler tasks
         }
       }
     });
@@ -121,7 +119,7 @@ export const searchRecipes = async (ingredients: string[], filters: DietaryFilte
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.0-flash',
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -178,7 +176,7 @@ export const searchRecipesByQuery = async (query: string, filters: DietaryFilter
         "sourceUrl": "The URL of the recipe source (e.g. https://www.allrecipes.com/...)",
         "sourceName": "The name of the website source (e.g. AllRecipes)",
         "ingredients": [{"name": "ingredient name", "quantity": "amount (e.g. 2 cups)"}],
-        "missingIngredients": [{"name": "ingredient name", "quantity": "amount"}], // Since we don't know the user's inventory, assume all are needed initially
+        "missingIngredients": [{"name": "ingredient name", "quantity": "amount"}], 
         "instructions": ["Step 1...", "Step 2..."],
         "prepTime": "e.g. 30 mins",
         "calories": "e.g. 500 kcal",
@@ -203,7 +201,7 @@ export const searchRecipesByQuery = async (query: string, filters: DietaryFilter
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.0-flash',
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -234,7 +232,7 @@ export const getChefTips = async (recipeTitle: string, ingredients: string[], la
     
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-2.0-flash',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -257,7 +255,7 @@ export const getChefTips = async (recipeTitle: string, ingredients: string[], la
 export const generateSpeech = async (text: string): Promise<ArrayBuffer | null> => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
+      model: "gemini-2.0-flash", // Use flash for TTS as it's faster
       contents: [{ parts: [{ text }] }],
       config: {
         responseModalities: [Modality.AUDIO],
@@ -288,10 +286,10 @@ export const generateSpeech = async (text: string): Promise<ArrayBuffer | null> 
 
 export const generateRecipeImage = async (title: string, size: '1K' | '2K' | '4K' = '1K'): Promise<string | null> => {
   try {
-    // Ensure fresh instance for key selection
-    const freshAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // FIX 2: Updated to use Vite environment variable
+    const freshAi = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
     const response = await freshAi.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
+      model: 'imagen-3.0-generate-002', // Using Imagen 3
       contents: {
         parts: [
           {
@@ -302,9 +300,9 @@ export const generateRecipeImage = async (title: string, size: '1K' | '2K' | '4K
       config: {
         imageConfig: {
           aspectRatio: "4:3",
+          // @ts-ignore
           imageSize: size
         },
-        tools: [{googleSearch: {}}] // Available for pro image
       }
     });
 
@@ -321,9 +319,10 @@ export const generateRecipeImage = async (title: string, size: '1K' | '2K' | '4K
 };
 
 export const createChefChat = (language: Language = 'en') => {
-  const freshAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // FIX 3: Updated to use Vite environment variable
+  const freshAi = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
   return freshAi.chats.create({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-2.0-flash',
     config: {
       systemInstruction: `You are CulinAI, a world-class chef and culinary assistant. Help users with cooking tips, substitutions, and techniques. Be concise and encouraging. IMPORTANT: You must reply in the ${language} language.`
     }
