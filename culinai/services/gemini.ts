@@ -1,4 +1,5 @@
-import { GoogleGenAI, Type, Modality } from "@google/genai";
+
+import { GoogleGenAI, Type } from "@google/genai";
 import { Recipe, DietaryFilters, Language } from "../types";
 
 // Setup API - Stable Version
@@ -34,7 +35,7 @@ export const analyzeFridgeImage = async (base64Images: string[], language: Langu
     });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash', // FIXED: Using stable model
+      model: 'gemini-1.5-flash',
       contents: {
         parts: parts
       },
@@ -54,7 +55,7 @@ export const analyzeFridgeImage = async (base64Images: string[], language: Langu
     return JSON.parse(text);
   } catch (error) {
     console.error("Error analyzing image:", error);
-    alert("AI Scan Error: " + error); // Alert user on phone
+    alert("AI Scan Error: " + error);
     return [];
   }
 };
@@ -101,4 +102,30 @@ export const searchRecipes = async (ingredients: string[], filters: DietaryFilte
         "carbs": "e.g. 45g",
         "fat": "e.g. 15g",
         "fiber": "e.g. 5g",
-        "sugar": "e.
+        "sugar": "e.g. 10g",
+        "sodium": "e.g. 500mg",
+        "cholesterol": "e.g. 30mg",
+        "potassium": "e.g. 400mg",
+        "vitaminA": "e.g. 10% DV",
+        "vitaminC": "e.g. 15% DV",
+        "calcium": "e.g. 20% DV",
+        "iron": "e.g. 5% DV",
+        "difficulty": "Easy" | "Medium" | "Hard",
+        "dietaryTags": ["Vegetarian", "Keto", etc],
+        "tips": ["Tip 1", "Tip 2"]
+      }
+    ]
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-1.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+      }
+    });
+
+    const text = response.text;
+    if (!text) return [];
+    const cleanText = text.replace(/```json\n?|```/g, '');
