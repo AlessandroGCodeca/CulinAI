@@ -59,9 +59,6 @@ export interface Recipe {
   carbs: string;
   fat: string;
   
-  // New Feature: AI Sommelier
-  drinkPairing?: string; 
-  
   // Optional Nutrition
   fiber?: string;       
   sugar?: string;
