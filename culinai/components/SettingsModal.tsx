@@ -7,11 +7,15 @@ interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   language: Language;
-  // RESTORED: This was missing, causing the build error
   setLanguage: (lang: Language) => void;
+  // NEW: Theme Props
+  theme: 'light' | 'dark';
+  setTheme: (theme: 'light' | 'dark') => void;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, language, setLanguage }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ 
+  isOpen, onClose, language, setLanguage, theme, setTheme 
+}) => {
   if (!isOpen) return null;
 
   return (
@@ -43,10 +47,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
               <Sun className="w-4 h-4" /> Theme
             </label>
             <div className="grid grid-cols-2 gap-2 bg-slate-950/50 p-1 rounded-xl">
-              <button className="flex items-center justify-center gap-2 py-2 rounded-lg text-slate-400 hover:text-white transition-colors">
+              <button 
+                onClick={() => setTheme('light')}
+                className={`flex items-center justify-center gap-2 py-2 rounded-lg transition-colors ${
+                  theme === 'light' 
+                    ? 'bg-white text-slate-900 shadow-sm font-medium' 
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
                 <Sun className="w-4 h-4" /> Light Mode
               </button>
-              <button className="flex items-center justify-center gap-2 py-2 rounded-lg bg-slate-800 text-white shadow-sm">
+              <button 
+                onClick={() => setTheme('dark')}
+                className={`flex items-center justify-center gap-2 py-2 rounded-lg transition-colors ${
+                  theme === 'dark' 
+                    ? 'bg-slate-800 text-white shadow-sm font-medium' 
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
                 <Moon className="w-4 h-4" /> Dark Mode
               </button>
             </div>
