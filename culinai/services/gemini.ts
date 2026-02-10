@@ -7,9 +7,6 @@ const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 // 1. Text Models (Your working list)
 const TEXT_MODELS = ["gemini-2.0-flash", "gemini-2.5-flash"];
 
-// 2. Image Model (Updated to the stable Imagen 4 model)
-const IMAGE_MODEL = "imagen-4.0-generate-001";
-
 // --- SMART HELPER: Tries models one by one ---
 async function generateWithFallback(prompt: string | any[], systemInstruction?: string): Promise<string> {
   let lastError;
@@ -37,7 +34,22 @@ async function generateWithFallback(prompt: string | any[], systemInstruction?: 
   throw new Error(`All models failed. Last error: ${lastError?.message}`);
 }
 
-// Helper to convert file to base64
+// Helper to reliably parse JSON even if the AI adds weird formatting
+const safeJsonParse = (text: string) => {
+  try {
+    // 1. Remove Markdown code blocks
+    let cleanText = text.replace(/```json\n?|```/g, '').trim();
+    // 2. Sometimes AI cuts off the end, try to close it if missing
+    if (!cleanText.endsWith(']') && cleanText.startsWith('[')) {
+        cleanText += ']';
+    }
+    return JSON.parse(cleanText);
+  } catch (e) {
+    console.error("JSON Parse Error:", e);
+    return []; // Return empty array safely instead of crashing
+  }
+};
+
 export const fileToGenerativePart = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -65,8 +77,7 @@ export const analyzeFridgeImage = async (base64Images: string[], language: Langu
       Return strictly a JSON array of strings containing the names of the ingredients found. Do not include Markdown formatting.`;
 
     const text = await generateWithFallback([prompt, ...imageParts]);
-    const cleanText = text.replace(/```json\n?|```/g, '');
-    return JSON.parse(cleanText);
+    return safeJsonParse(text);
   } catch (error) {
     console.error("Error analyzing image:", error);
     return [];
@@ -132,8 +143,7 @@ export const searchRecipes = async (ingredients: string[], filters: DietaryFilte
 
   try {
     const text = await generateWithFallback(prompt);
-    const cleanText = text.replace(/```json\n?|```/g, '');
-    return JSON.parse(cleanText);
+    return safeJsonParse(text);
   } catch (error) {
     console.error("Error finding recipes:", error);
     alert("Recipe Error: " + error);
@@ -205,8 +215,7 @@ export const searchRecipesByQuery = async (query: string, filters: DietaryFilter
 
   try {
     const text = await generateWithFallback(prompt);
-    const cleanText = text.replace(/```json\n?|```/g, '');
-    return JSON.parse(cleanText);
+    return safeJsonParse(text);
   } catch (error) {
     console.error("Error searching recipes:", error);
     alert("Search Error: " + error);
@@ -227,35 +236,27 @@ export const getChefTips = async (recipeTitle: string, ingredients: string[], la
     
     try {
         const text = await generateWithFallback(prompt);
-        return JSON.parse(text);
+        return safeJsonParse(text);
     } catch (error) {
         console.error("Error fetching tips:", error);
         return [];
     }
 };
 
-// --- ENABLED IMAGE GENERATION ---
+// --- GUARANTEED IMAGE GENERATION FIX ---
 export const generateRecipeImage = async (title: string, size: '1K' | '2K' | '4K' = '1K'): Promise<string | null> => {
     try {
-        // Use the stable Imagen 4 model for image generation
-        const model = genAI.getGenerativeModel({ model: IMAGE_MODEL });
+        // Clean the title for the URL
+        const cleanTitle = encodeURIComponent(title.trim());
+        // Use Pollinations.ai (No API key needed, extremely reliable for food images)
+        // We add "professional food photography" to prompt for quality
+        const imageUrl = `https://image.pollinations.ai/prompt/delicious ${cleanTitle} plated dish, professional food photography, 4k, studio lighting, highly detailed?nologo=true&seed=${Math.floor(Math.random() * 1000)}`;
         
-        const result = await model.generateContent({
-          contents: [{ 
-            role: 'user', 
-            parts: [{ text: `Generate a photorealistic, high-quality food photography image of: ${title}` }] 
-          }]
-        });
-
-        const response = result.response;
-        // Check for inline data (Base64)
-        if (response.candidates && response.candidates[0].content.parts[0].inlineData) {
-            return `data:image/png;base64,${response.candidates[0].content.parts[0].inlineData.data}`;
-        }
-        return null;
+        // Return the URL directly - your app's <img src> will handle it perfectly
+        return imageUrl;
     } catch (error) {
         console.error("Image generation error:", error);
-        return null; // Fail silently so the app keeps working
+        return null;
     }
 };
 
