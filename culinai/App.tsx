@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { AuthScreen } from './components/AuthScreen';
 import { RecipeCard } from './components/RecipeCard';
@@ -6,9 +6,10 @@ import { RecipeDetails } from './components/RecipeDetails';
 import { ChatBot } from './components/ChatBot';
 import { CookingMode } from './components/CookingMode';
 import { ShoppingList } from './components/ShoppingList';
+import { SettingsModal } from './components/SettingsModal';
 import { searchRecipesByQuery, analyzeFridgeImage, searchRecipes } from './services/gemini';
-import { Recipe, ViewState, DietaryFilters, UserProfile, ShoppingItem, SavedSearch } from './types';
-import { Search, ChefHat, Camera, Loader2, Sparkles, Filter, X } from 'lucide-react';
+import { Recipe, ViewState, DietaryFilters, UserProfile, ShoppingItem, Language } from './types';
+import { Search, ChefHat, Camera, Loader2, Filter, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const defaultFilters: DietaryFilters = {
@@ -23,29 +24,14 @@ const defaultFilters: DietaryFilters = {
 };
 
 function App() {
-  // --- PERSISTENT STATE INITIALIZATION ---
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem('culinai_user');
-    return saved ? JSON.parse(saved) : null;
-  });
+  // --- NORMAL STATE (No Persistence) ---
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
+  const [history, setHistory] = useState<string[]>([]);
 
-  const [favorites, setFavorites] = useState<string[]>(() => {
-    const saved = localStorage.getItem('culinai_favorites');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(() => {
-    const saved = localStorage.getItem('culinai_shopping');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [history, setHistory] = useState<string[]>(() => {
-    const saved = localStorage.getItem('culinai_history');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // Regular State
-  const [viewState, setViewState] = useState<ViewState>(userProfile ? 'home' : 'auth');
+  // Navigation
+  const [viewState, setViewState] = useState<ViewState>('auth');
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -53,23 +39,10 @@ function App() {
   const [filters, setFilters] = useState<DietaryFilters>(defaultFilters);
   const [showFilters, setShowFilters] = useState(false);
   const [chatInitialMessage, setChatInitialMessage] = useState('');
-
-  // --- PERSISTENCE EFFECTS ---
-  useEffect(() => {
-    if (userProfile) localStorage.setItem('culinai_user', JSON.stringify(userProfile));
-  }, [userProfile]);
-
-  useEffect(() => {
-    localStorage.setItem('culinai_favorites', JSON.stringify(favorites));
-  }, [favorites]);
-
-  useEffect(() => {
-    localStorage.setItem('culinai_shopping', JSON.stringify(shoppingList));
-  }, [shoppingList]);
   
-  useEffect(() => {
-    localStorage.setItem('culinai_history', JSON.stringify(history));
-  }, [history]);
+  // Settings
+  const [showSettings, setShowSettings] = useState(false);
+  const [language, setLanguage] = useState<Language>('en');
 
   // Handlers
   const handleLogin = (name: string, secretKey: string) => {
@@ -89,7 +62,7 @@ function App() {
 
     setIsSearching(true);
     setViewState('recipes');
-    const results = await searchRecipesByQuery(searchQuery, filters);
+    const results = await searchRecipesByQuery(searchQuery, filters, language);
     setRecipes(results);
     setIsSearching(false);
   };
@@ -112,10 +85,8 @@ function App() {
     const base64Images = await Promise.all(imagePromises);
     const base64Data = base64Images.map(img => img.split(',')[1]);
     
-    // First analyze images
-    const ingredients = await analyzeFridgeImage(base64Data);
-    // Then search recipes
-    const results = await searchRecipes(ingredients, filters);
+    const ingredients = await analyzeFridgeImage(base64Data, language);
+    const results = await searchRecipes(ingredients, filters, language);
     
     setRecipes(results);
     setIsSearching(false);
@@ -152,6 +123,10 @@ function App() {
       setViewState('chat');
   };
 
+  const handleToggleFilter = (key: keyof DietaryFilters) => {
+    setFilters(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   if (viewState === 'auth') {
     return <AuthScreen onLogin={handleLogin} />;
   }
@@ -165,15 +140,16 @@ function App() {
         favoritesCount={favorites.length}
         shoppingCount={shoppingList.filter(i => !i.checked).length}
         onLogout={() => {
-            localStorage.removeItem('culinai_user');
             setUserProfile(null);
             setViewState('auth');
         }}
+        onOpenSettings={() => setShowSettings(true)}
+        filters={filters}
+        onToggleFilter={handleToggleFilter}
       />
 
       <main className="flex-1 ml-20 lg:ml-64 p-4 lg:p-8 transition-all duration-300">
         
-        {/* Header Search Bar (Visible on most pages) */}
         {viewState !== 'cooking' && viewState !== 'recipe-details' && (
             <div className="max-w-5xl mx-auto mb-8 sticky top-4 z-30">
                 <form onSubmit={handleSearch} className="relative group">
@@ -197,53 +173,16 @@ function App() {
                         <button 
                             type="button"
                             onClick={() => setShowFilters(!showFilters)}
-                            className={`p-4 rounded-2xl border transition-all ${
-                                showFilters ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-slate-900 border-slate-800 hover:border-slate-700'
-                            }`}
+                            className="lg:hidden p-4 rounded-2xl border transition-all bg-slate-900 border-slate-800"
                         >
                             <Filter className="w-5 h-5" />
                         </button>
                     </div>
-                    
-                    {/* Filters Drawer */}
-                    <AnimatePresence>
-                        {showFilters && (
-                            <motion.div 
-                                initial={{ height: 0, opacity: 0, marginTop: 0 }}
-                                animate={{ height: 'auto', opacity: 1, marginTop: 16 }}
-                                exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                                className="overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl"
-                            >
-                                <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                    {Object.entries(filters).map(([key, value]) => {
-                                        if (key === 'cuisine' || key === 'maxPrepTime') return null;
-                                        return (
-                                            <label key={key} className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-xl cursor-pointer hover:bg-slate-800 transition-colors">
-                                                <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${value ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600'}`}>
-                                                    {value && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-                                                </div>
-                                                <input 
-                                                    type="checkbox" 
-                                                    className="hidden"
-                                                    checked={value as boolean}
-                                                    onChange={() => setFilters(prev => ({ ...prev, [key]: !prev[key as keyof DietaryFilters] }))}
-                                                />
-                                                <span className="capitalize text-sm text-slate-300">{key.replace(/([A-Z])/g, ' $1')}</span>
-                                            </label>
-                                        );
-                                    })}
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
                 </form>
             </div>
         )}
 
-        {/* --- MAIN CONTENT AREA --- */}
         <div className="max-w-7xl mx-auto">
-            
-            {/* HOME VIEW */}
             {viewState === 'home' && (
                 <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8">
                     <motion.div 
@@ -293,7 +232,6 @@ function App() {
                 </div>
             )}
 
-            {/* RECIPES LIST VIEW */}
             {viewState === 'recipes' && (
                 <div className="space-y-8">
                     <div className="flex items-center justify-between">
@@ -336,7 +274,6 @@ function App() {
                 </div>
             )}
 
-            {/* SHOPPING LIST VIEW */}
             {viewState === 'shopping' && (
                 <ShoppingList 
                     items={shoppingList}
@@ -346,7 +283,6 @@ function App() {
                 />
             )}
 
-            {/* CHAT VIEW */}
             {viewState === 'chat' && (
                 <ChatBot 
                     initialMessage={chatInitialMessage}
@@ -355,7 +291,6 @@ function App() {
             )}
         </div>
 
-        {/* RECIPE DETAILS MODAL */}
         <AnimatePresence>
             {viewState === 'recipe-details' && selectedRecipe && (
                 <RecipeDetails 
@@ -368,7 +303,6 @@ function App() {
             )}
         </AnimatePresence>
 
-        {/* COOKING MODE */}
         <AnimatePresence>
             {viewState === 'cooking' && selectedRecipe && (
                 <CookingMode 
@@ -381,10 +315,18 @@ function App() {
                 />
             )}
         </AnimatePresence>
+        
+        <AnimatePresence>
+            <SettingsModal 
+                isOpen={showSettings}
+                onClose={() => setShowSettings(false)}
+                language={language}
+                setLanguage={setLanguage}
+            />
+        </AnimatePresence>
 
       </main>
       
-      {/* Background Ambience */}
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none -z-10 overflow-hidden">
           <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[100px]" />
           <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[100px]" />
@@ -392,8 +334,5 @@ function App() {
     </div>
   );
 }
-
-// Helper component for Filters (imports were cleaner to inline above but needed CheckCircle2)
-import { CheckCircle2 } from 'lucide-react';
 
 export default App;
