@@ -61,6 +61,21 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
   });
 };
 
+// --- AUTOMATIC IMAGE GENERATOR ---
+// Creates an instant, unique stock photo URL
+export const generateRecipeImage = async (title: string, size: '1K' | '2K' | '4K' = '1K'): Promise<string | null> => {
+    try {
+        const cleanTitle = title.split('with')[0].split('and')[0].trim();
+        // Use a random ID to ensure every image is different, even for similar recipes
+        const randomId = Math.floor(Math.random() * 10000);
+        // Using LoremFlickr for reliable, unlimited food stock photos
+        return `https://loremflickr.com/800/600/cooked,food,meal,${encodeURIComponent(cleanTitle)}?random=${randomId}`;
+    } catch (error) {
+        console.error("Image generation error:", error);
+        return null;
+    }
+};
+
 export const analyzeFridgeImage = async (base64Images: string[], language: Language = 'en'): Promise<string[]> => {
   try {
     const imageParts = base64Images.map(base64 => ({
@@ -141,7 +156,15 @@ export const searchRecipes = async (ingredients: string[], filters: DietaryFilte
 
   try {
     const text = await generateWithFallback(prompt);
-    return safeJsonParse(text);
+    const recipes = safeJsonParse(text);
+
+    // AUTO-IMAGE: Attach an image to every recipe immediately!
+    const recipesWithImages = await Promise.all(recipes.map(async (recipe: any) => {
+      const imageUrl = await generateRecipeImage(recipe.title);
+      return { ...recipe, image: imageUrl };
+    }));
+
+    return recipesWithImages;
   } catch (error) {
     console.error("Error finding recipes:", error);
     alert("Recipe Error: " + error);
@@ -213,7 +236,15 @@ export const searchRecipesByQuery = async (query: string, filters: DietaryFilter
 
   try {
     const text = await generateWithFallback(prompt);
-    return safeJsonParse(text);
+    const recipes = safeJsonParse(text);
+
+    // AUTO-IMAGE: Attach an image to every recipe immediately!
+    const recipesWithImages = await Promise.all(recipes.map(async (recipe: any) => {
+      const imageUrl = await generateRecipeImage(recipe.title);
+      return { ...recipe, image: imageUrl };
+    }));
+
+    return recipesWithImages;
   } catch (error) {
     console.error("Error searching recipes:", error);
     alert("Search Error: " + error);
@@ -238,21 +269,6 @@ export const getChefTips = async (recipeTitle: string, ingredients: string[], la
     } catch (error) {
         console.error("Error fetching tips:", error);
         return [];
-    }
-};
-
-// --- STOCK PHOTO FIX (Unlimited) ---
-export const generateRecipeImage = async (title: string, size: '1K' | '2K' | '4K' = '1K'): Promise<string | null> => {
-    try {
-        // Clean title
-        const cleanTitle = title.split('with')[0].split('and')[0].trim();
-        // Use LoremFlickr (Robust, free stock photos of food)
-        // We add a random number to ensure different recipes get different images
-        const randomId = Math.floor(Math.random() * 1000);
-        return `https://loremflickr.com/800/600/food,dinner,${encodeURIComponent(cleanTitle)}?random=${randomId}`;
-    } catch (error) {
-        console.error("Image generation error:", error);
-        return null;
     }
 };
 
