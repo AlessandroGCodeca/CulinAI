@@ -1,3 +1,25 @@
+// --- Navigation & State ---
+export type ViewState = 'search' | 'chef' | 'history' | 'shopping' | 'auth';
+
+export type ShoppingItem = {
+  id: string;
+  name: string;
+  checked: boolean;
+};
+
+export type SavedSearch = {
+  id: string;
+  query: string;
+  date: Date;
+};
+
+export type UserProfile = {
+  name: string;
+  dietaryPreferences: DietaryFilters;
+  favorites: string[];
+};
+
+// --- Filters & Settings ---
 export type DietaryFilters = {
   vegetarian: boolean;
   vegan: boolean;
@@ -5,12 +27,16 @@ export type DietaryFilters = {
   glutenFree: boolean;
   dairyFree: boolean;
   lowCarb: boolean;
+  highProtein?: boolean; // Required by App.tsx
   cuisine: string[];
   maxPrepTime: string | 'any';
 };
 
-export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt';
+// --- Languages ---
+// Added 'sk' to fix translation errors
+export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'sk';
 
+// --- Recipe Data ---
 export interface Ingredient {
   name: string;
   quantity: string;
@@ -27,6 +53,9 @@ export interface Recipe {
   protein: string;
   carbs: string;
   fat: string;
+  
+  // Optional Nutrition
+  fiber?: string;       // Required by App.tsx
   sugar?: string;
   sodium?: string;
   cholesterol?: string;
@@ -35,11 +64,21 @@ export interface Recipe {
   vitaminC?: string;
   calcium?: string;
   iron?: string;
+  
+  // Metadata
   difficulty?: string;
   dietaryTags?: string[];
   tips?: string[];
   sourceUrl?: string;
   sourceName?: string;
+  
+  // Image handling (Aliases to prevent crashes)
   imageKeyword?: string;
-  image?: string; // Added this field
+  image?: string;
+  imageUrl?: string;    // Required by RecipeCard.tsx & QuickViewModal.tsx
+  userImages?: string[]; // Required by RecipeCard.tsx
+  
+  // App Logic
+  missingIngredients?: Ingredient[]; // Required by RecipeCard.tsx
+  cooked?: boolean;     // Required by RecipeCard.tsx
 }
