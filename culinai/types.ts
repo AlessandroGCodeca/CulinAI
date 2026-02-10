@@ -14,7 +14,7 @@ export type SavedSearch = {
   id: string;
   query: string;
   date: Date;
-  filters?: DietaryFilters; // Added to fix build error
+  filters?: DietaryFilters; 
 };
 
 export type UserProfile = {
@@ -32,14 +32,15 @@ export type DietaryFilters = {
   glutenFree: boolean;
   dairyFree: boolean;
   lowCarb: boolean;
-  highProtein?: boolean; 
-  lowFat?: boolean;    // Added to fix build error
+  highProtein?: boolean; // Added to fix build error
+  lowFat?: boolean;      // Added to fix build error
   cuisine: string[];
   maxPrepTime: string | 'any';
 };
 
 // --- Languages ---
-export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'sk';
+// kept 'sk' (Slovak), removed 'pt' (Portuguese)
+export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'sk';
 
 // --- Recipe Data ---
 export interface Ingredient {
