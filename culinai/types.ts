@@ -14,7 +14,7 @@ export type SavedSearch = {
   id: string;
   query: string;
   date: Date;
-  filters?: DietaryFilters; 
+  filters?: DietaryFilters; // Added to fix build error
 };
 
 export type UserProfile = {
@@ -39,7 +39,8 @@ export type DietaryFilters = {
 };
 
 // --- Languages ---
-// kept 'sk' (Slovak), removed 'pt' (Portuguese)
+// REMOVED 'pt' (Portuguese) to fix build error
+// KEPT 'sk' (Slovak) as requested
 export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'sk';
 
 // --- Recipe Data ---
@@ -60,7 +61,7 @@ export interface Recipe {
   carbs: string;
   fat: string;
   
-  // Optional Nutrition
+  // Optional Nutrition (Added 'fiber' to fix build error)
   fiber?: string;       
   sugar?: string;
   sodium?: string;
