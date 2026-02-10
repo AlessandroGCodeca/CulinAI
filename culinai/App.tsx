@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { AuthScreen } from './components/AuthScreen';
 import { RecipeCard } from './components/RecipeCard';
@@ -11,6 +11,8 @@ import { searchRecipesByQuery, analyzeFridgeImage, searchRecipes } from './servi
 import { Recipe, ViewState, DietaryFilters, UserProfile, ShoppingItem, Language } from './types';
 import { Search, ChefHat, Camera, Loader2, Filter, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+// NEW: Import translations
+import { translations } from './constants/translations';
 
 const defaultFilters: DietaryFilters = {
   vegetarian: false,
@@ -19,18 +21,18 @@ const defaultFilters: DietaryFilters = {
   glutenFree: false,
   dairyFree: false,
   lowCarb: false,
+  highProtein: false,
+  lowFat: false,
   cuisine: [],
   maxPrepTime: 'any'
 };
 
 function App() {
-  // --- NORMAL STATE (No Persistence) ---
+  // --- STATE ---
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [history, setHistory] = useState<string[]>([]);
-
-  // Navigation
   const [viewState, setViewState] = useState<ViewState>('auth');
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -43,16 +45,23 @@ function App() {
   // Settings
   const [showSettings, setShowSettings] = useState(false);
   const [language, setLanguage] = useState<Language>('en');
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  // --- DERIVED STATE ---
+  const t = translations[language];
+
+  // --- THEME EFFECT ---
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   // Handlers
   const handleLogin = (name: string, secretKey: string) => {
-    const profile: UserProfile = { 
-        name, 
-        secretKey,
-        dietaryPreferences: defaultFilters,
-        favorites: []
-    };
-    setUserProfile(profile);
+    setUserProfile({ name, secretKey, dietaryPreferences: defaultFilters, favorites: [] });
     setViewState('home');
   };
 
@@ -94,9 +103,7 @@ function App() {
 
   const toggleFavorite = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    setFavorites(prev => 
-      prev.includes(id) ? prev.filter(fid => fid !== id) : [...prev, id]
-    );
+    setFavorites(prev => prev.includes(id) ? prev.filter(fid => fid !== id) : [...prev, id]);
   };
 
   const addToShoppingList = (items: string[]) => {
@@ -109,9 +116,7 @@ function App() {
   };
 
   const toggleShoppingItem = (id: string) => {
-    setShoppingList(prev => prev.map(item => 
-      item.id === id ? { ...item, checked: !item.checked } : item
-    ));
+    setShoppingList(prev => prev.map(item => item.id === id ? { ...item, checked: !item.checked } : item));
   };
 
   const removeShoppingItem = (id: string) => {
@@ -127,25 +132,38 @@ function App() {
     setFilters(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // RESTORED: Cuisine Toggling
+  const handleToggleCuisine = (cuisine: string) => {
+    setFilters(prev => {
+      const current = prev.cuisine;
+      const updated = current.includes(cuisine) 
+        ? current.filter(c => c !== cuisine)
+        : [...current, cuisine];
+      return { ...prev, cuisine: updated };
+    });
+  };
+
   if (viewState === 'auth') {
     return <AuthScreen onLogin={handleLogin} />;
   }
 
   return (
-    <div className="flex min-h-screen bg-[#0B0F17] text-slate-200 font-sans selection:bg-emerald-500/30">
+    <div className={`flex min-h-screen font-sans selection:bg-emerald-500/30 transition-colors duration-300 ${
+      theme === 'dark' ? 'bg-[#0B0F17] text-slate-200' : 'bg-slate-50 text-slate-800'
+    }`}>
       <Sidebar 
         viewState={viewState} 
         setViewState={setViewState} 
         userProfile={userProfile}
         favoritesCount={favorites.length}
         shoppingCount={shoppingList.filter(i => !i.checked).length}
-        onLogout={() => {
-            setUserProfile(null);
-            setViewState('auth');
-        }}
+        onLogout={() => { setUserProfile(null); setViewState('auth'); }}
         onOpenSettings={() => setShowSettings(true)}
         filters={filters}
         onToggleFilter={handleToggleFilter}
+        // NEW PROPS
+        t={t}
+        onToggleCuisine={handleToggleCuisine}
       />
 
       <main className="flex-1 ml-20 lg:ml-64 p-4 lg:p-8 transition-all duration-300">
@@ -161,8 +179,12 @@ function App() {
                                 type="text" 
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="What are you craving? (e.g. 'Spicy Pasta', 'Healthy Dinner')"
-                                className="w-full bg-slate-900/90 backdrop-blur-xl border border-slate-800 text-white pl-12 pr-12 py-4 rounded-2xl focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 shadow-2xl transition-all"
+                                placeholder={t.searchPlaceholder || "What are you craving?"}
+                                className={`w-full backdrop-blur-xl border pl-12 pr-12 py-4 rounded-2xl focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 shadow-2xl transition-all ${
+                                  theme === 'dark' 
+                                    ? 'bg-slate-900/90 border-slate-800 text-white placeholder-slate-500' 
+                                    : 'bg-white/90 border-slate-200 text-slate-900 placeholder-slate-400'
+                                }`}
                             />
                             {searchQuery && (
                                 <button type="button" onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-800 rounded-full">
@@ -173,7 +195,9 @@ function App() {
                         <button 
                             type="button"
                             onClick={() => setShowFilters(!showFilters)}
-                            className="lg:hidden p-4 rounded-2xl border transition-all bg-slate-900 border-slate-800"
+                            className={`lg:hidden p-4 rounded-2xl border transition-all ${
+                              theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+                            }`}
                         >
                             <Filter className="w-5 h-5" />
                         </button>
@@ -190,8 +214,10 @@ function App() {
                         animate={{ scale: 1, opacity: 1 }}
                         className="space-y-4"
                     >
-                        <h1 className="text-4xl sm:text-6xl font-bold text-white tracking-tight">
-                            What's cooking <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-500">tonight?</span>
+                        <h1 className={`text-4xl sm:text-6xl font-bold tracking-tight ${
+                          theme === 'dark' ? 'text-white' : 'text-slate-900'
+                        }`}>
+                            {t.whatsCooking || "What's cooking"} <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-500">tonight?</span>
                         </h1>
                         <p className="text-lg text-slate-400 max-w-2xl mx-auto">
                             Discover delicious recipes by scanning your ingredients or simply searching for a craving.
@@ -208,14 +234,7 @@ function App() {
                                 <Camera className="w-8 h-8 text-indigo-400" />
                             </div>
                             <span className="text-xl font-semibold text-indigo-200">Scan Ingredients</span>
-                            <input 
-                                type="file" 
-                                id="photo-upload"
-                                multiple 
-                                accept="image/*"
-                                className="hidden"
-                                onChange={handleImageUpload}
-                            />
+                            <input type="file" id="photo-upload" multiple accept="image/*" className="hidden" onChange={handleImageUpload} />
                         </button>
 
                         <button 
@@ -226,7 +245,7 @@ function App() {
                             <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
                                 <Search className="w-8 h-8 text-emerald-400" />
                             </div>
-                            <span className="text-xl font-semibold text-emerald-200">Search Recipes</span>
+                            <span className="text-xl font-semibold text-emerald-200">{t.findRecipes || "Search Recipes"}</span>
                         </button>
                     </div>
                 </div>
@@ -235,11 +254,13 @@ function App() {
             {viewState === 'recipes' && (
                 <div className="space-y-8">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-2xl font-bold text-white">Suggested Recipes</h2>
+                        <h2 className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                          {t.suggestedRecipes || "Suggested Recipes"}
+                        </h2>
                         {isSearching && (
                             <div className="flex items-center gap-2 text-emerald-500">
                                 <Loader2 className="w-5 h-5 animate-spin" />
-                                <span>Cooking up ideas...</span>
+                                <span>{t.generating || "Cooking up ideas..."}</span>
                             </div>
                         )}
                     </div>
@@ -247,18 +268,10 @@ function App() {
                     {recipes.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {recipes.map((recipe, idx) => (
-                                <motion.div 
-                                    key={recipe.id || idx}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: idx * 0.1 }}
-                                >
+                                <motion.div key={recipe.id || idx} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }}>
                                     <RecipeCard 
                                         recipe={recipe} 
-                                        onClick={() => {
-                                            setSelectedRecipe(recipe);
-                                            setViewState('recipe-details');
-                                        }}
+                                        onClick={() => { setSelectedRecipe(recipe); setViewState('recipe-details'); }}
                                         isFavorite={favorites.includes(recipe.id)}
                                         onToggleFavorite={(e) => toggleFavorite(e, recipe.id)}
                                     />
@@ -275,19 +288,11 @@ function App() {
             )}
 
             {viewState === 'shopping' && (
-                <ShoppingList 
-                    items={shoppingList}
-                    onToggle={toggleShoppingItem}
-                    onRemove={removeShoppingItem}
-                    onAdd={(name) => addToShoppingList([name])}
-                />
+                <ShoppingList items={shoppingList} onToggle={toggleShoppingItem} onRemove={removeShoppingItem} onAdd={(name) => addToShoppingList([name])} />
             )}
 
             {viewState === 'chat' && (
-                <ChatBot 
-                    initialMessage={chatInitialMessage}
-                    onClearInitialMessage={() => setChatInitialMessage('')}
-                />
+                <ChatBot initialMessage={chatInitialMessage} onClearInitialMessage={() => setChatInitialMessage('')} />
             )}
         </div>
 
@@ -308,10 +313,7 @@ function App() {
                 <CookingMode 
                     recipe={selectedRecipe} 
                     onClose={() => setViewState('recipe-details')}
-                    onComplete={() => {
-                        setHistory(prev => [...prev, selectedRecipe.id]);
-                        setViewState('home');
-                    }}
+                    onComplete={() => { setHistory(prev => [...prev, selectedRecipe.id]); setViewState('home'); }}
                 />
             )}
         </AnimatePresence>
@@ -322,15 +324,20 @@ function App() {
                 onClose={() => setShowSettings(false)}
                 language={language}
                 setLanguage={setLanguage}
+                theme={theme}
+                setTheme={setTheme}
             />
         </AnimatePresence>
 
       </main>
       
-      <div className="fixed top-0 left-0 w-full h-full pointer-events-none -z-10 overflow-hidden">
-          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[100px]" />
-          <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[100px]" />
-      </div>
+      {/* Background Ambience */}
+      {theme === 'dark' && (
+        <div className="fixed top-0 left-0 w-full h-full pointer-events-none -z-10 overflow-hidden">
+            <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[100px]" />
+            <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[100px]" />
+        </div>
+      )}
     </div>
   );
 }
