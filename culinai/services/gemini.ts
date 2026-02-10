@@ -4,10 +4,10 @@ import { Recipe, DietaryFilters, Language } from "../types";
 // Setup API
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
-// Text Models (Your working list)
+// Text Models
 const TEXT_MODELS = ["gemini-2.0-flash", "gemini-2.5-flash"];
 
-// --- SMART HELPER: Tries models one by one ---
+// --- SMART HELPER ---
 async function generateWithFallback(prompt: string | any[], systemInstruction?: string): Promise<string> {
   let lastError;
   for (const modelName of TEXT_MODELS) {
@@ -34,7 +34,6 @@ async function generateWithFallback(prompt: string | any[], systemInstruction?: 
   throw new Error(`All models failed. Last error: ${lastError?.message}`);
 }
 
-// Helper to reliably parse JSON
 const safeJsonParse = (text: string) => {
   try {
     let cleanText = text.replace(/```json\n?|```/g, '').trim();
@@ -61,17 +60,15 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
   });
 };
 
-// --- AUTOMATIC IMAGE GENERATOR ---
-// Creates an instant, unique stock photo URL
-export const generateRecipeImage = async (title: string, size: '1K' | '2K' | '4K' = '1K'): Promise<string | null> => {
+// --- ROBUST IMAGE GENERATOR ---
+// Uses the AI-generated keyword to find a guaranteed image match
+export const generateRecipeImage = async (keyword: string): Promise<string | null> => {
     try {
-        const cleanTitle = title.split('with')[0].split('and')[0].trim();
-        // Use a random ID to ensure every image is different, even for similar recipes
-        const randomId = Math.floor(Math.random() * 10000);
-        // Using LoremFlickr for reliable, unlimited food stock photos
-        return `https://loremflickr.com/800/600/cooked,food,meal,${encodeURIComponent(cleanTitle)}?random=${randomId}`;
+        // Use Bing's Thumbnail API for reliable, instant, relevant food images
+        // We add "food" to ensure we don't get random objects
+        const query = encodeURIComponent(`${keyword} food dish`);
+        return `https://tse2.mm.bing.net/th?q=${query}&w=800&h=600&c=7&rs=1&p=0`;
     } catch (error) {
-        console.error("Image generation error:", error);
         return null;
     }
 };
@@ -122,15 +119,18 @@ export const searchRecipes = async (ingredients: string[], filters: DietaryFilte
     
     For each recipe, compare my ingredients with the recipe requirements and list any essential "missingIngredients".
     
+    CRITICAL: For each recipe, include a hidden field "imageKeyword" which is a SINGLE english word to describe the dish (e.g. "Pasta", "Pizza", "Soup", "Chicken") for finding a stock photo.
+    
     Return the result strictly as a JSON list of objects matching this structure:
     [
       {
         "id": "unique_id",
         "title": "Recipe Title",
         "description": "Short appetizing description",
-        "sourceUrl": "The URL of the recipe source (e.g. https://www.allrecipes.com/...)",
-        "sourceName": "The name of the website source (e.g. AllRecipes)",
-        "ingredients": [{"name": "ingredient name", "quantity": "amount (e.g. 2 cups)"}],
+        "sourceUrl": "The URL of the recipe source",
+        "sourceName": "The name of the website source",
+        "imageKeyword": "OneWordTag",
+        "ingredients": [{"name": "ingredient name", "quantity": "amount"}],
         "missingIngredients": [{"name": "ingredient name", "quantity": "amount"}],
         "instructions": ["Step 1...", "Step 2..."],
         "prepTime": "e.g. 30 mins",
@@ -158,9 +158,11 @@ export const searchRecipes = async (ingredients: string[], filters: DietaryFilte
     const text = await generateWithFallback(prompt);
     const recipes = safeJsonParse(text);
 
-    // AUTO-IMAGE: Attach an image to every recipe immediately!
+    // AUTO-IMAGE: Use the AI-provided simple keyword
     const recipesWithImages = await Promise.all(recipes.map(async (recipe: any) => {
-      const imageUrl = await generateRecipeImage(recipe.title);
+      // Fallback to title if AI missed the keyword
+      const keyword = recipe.imageKeyword || recipe.title.split(" ")[0];
+      const imageUrl = await generateRecipeImage(keyword);
       return { ...recipe, image: imageUrl };
     }));
 
@@ -202,15 +204,18 @@ export const searchRecipesByQuery = async (query: string, filters: DietaryFilter
     Use Google Search (simulated) to find 4 high-quality, real recipes that best match these criteria. Include specific quantities for ingredients.
     IMPORTANT: Provide the response strictly in the ${language} language.
     
+    CRITICAL: For each recipe, include a hidden field "imageKeyword" which is a SINGLE english word to describe the dish (e.g. "Pasta", "Pizza", "Soup", "Chicken") for finding a stock photo.
+    
     Return the result strictly as a JSON list of objects matching this structure:
     [
       {
         "id": "unique_id",
         "title": "Recipe Title",
         "description": "Short appetizing description",
-        "sourceUrl": "The URL of the recipe source (e.g. https://www.allrecipes.com/...)",
-        "sourceName": "The name of the website source (e.g. AllRecipes)",
-        "ingredients": [{"name": "ingredient name", "quantity": "amount (e.g. 2 cups)"}],
+        "sourceUrl": "The URL of the recipe source",
+        "sourceName": "The name of the website source",
+        "imageKeyword": "OneWordTag",
+        "ingredients": [{"name": "ingredient name", "quantity": "amount"}],
         "missingIngredients": [{"name": "ingredient name", "quantity": "amount"}], 
         "instructions": ["Step 1...", "Step 2..."],
         "prepTime": "e.g. 30 mins",
@@ -238,9 +243,11 @@ export const searchRecipesByQuery = async (query: string, filters: DietaryFilter
     const text = await generateWithFallback(prompt);
     const recipes = safeJsonParse(text);
 
-    // AUTO-IMAGE: Attach an image to every recipe immediately!
+    // AUTO-IMAGE: Use the AI-provided simple keyword
     const recipesWithImages = await Promise.all(recipes.map(async (recipe: any) => {
-      const imageUrl = await generateRecipeImage(recipe.title);
+      // Fallback to title if AI missed the keyword
+      const keyword = recipe.imageKeyword || recipe.title.split(" ")[0];
+      const imageUrl = await generateRecipeImage(keyword);
       return { ...recipe, image: imageUrl };
     }));
 
