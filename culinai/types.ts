@@ -13,15 +13,17 @@ export type ShoppingItem = {
 export type SavedSearch = {
   id: string;
   query: string;
-  date: Date;
-  filters?: DietaryFilters; // Added to fix build error
+  date?: Date;         // Optional
+  timestamp?: number;  // Added to fix build error in App.tsx
+  filters?: DietaryFilters; 
 };
 
 export type UserProfile = {
   name: string;
-  dietaryPreferences: DietaryFilters;
-  favorites: string[];
-  secretKey?: string; // Added to fix build error
+  // Made optional to fix AuthScreen build error
+  dietaryPreferences?: DietaryFilters;
+  favorites?: string[];
+  secretKey?: string; 
 };
 
 // --- Filters & Settings ---
@@ -32,15 +34,13 @@ export type DietaryFilters = {
   glutenFree: boolean;
   dairyFree: boolean;
   lowCarb: boolean;
-  highProtein?: boolean; // Added to fix build error
-  lowFat?: boolean;      // Added to fix build error
+  highProtein?: boolean; 
+  lowFat?: boolean;      
   cuisine: string[];
   maxPrepTime: string | 'any';
 };
 
 // --- Languages ---
-// REMOVED 'pt' (Portuguese) to fix build error
-// KEPT 'sk' (Slovak) as requested
 export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'sk';
 
 // --- Recipe Data ---
@@ -61,7 +61,7 @@ export interface Recipe {
   carbs: string;
   fat: string;
   
-  // Optional Nutrition (Added 'fiber' to fix build error)
+  // Optional Nutrition
   fiber?: string;       
   sugar?: string;
   sodium?: string;
