@@ -1,25 +1,29 @@
-import React, { useState, useEffect } from 'react';
+'import React, { useState, useEffect } from 'react';
 import { X, Clock, Flame, ChefHat, ExternalLink, Share2, Heart, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Recipe } from '../types';
-import { generateRecipeImage } from '../services/geminiService';
+// Fixed import path to match your file name (gemini.ts)
+import { generateRecipeImage } from '../services/gemini';
 
 interface RecipeDetailsProps {
   recipe: Recipe;
-  onClose: () => void;
+  onBack: () => void; // Changed from onClose to match App.tsx
+  onStartCooking?: () => void;
+  onAddToShoppingList?: (items: string[]) => void;
+  onUpdateImage?: (id: string, imageUrl: string) => void;
+  onAskChef?: (query: string) => void;
 }
 
-export const RecipeDetails: React.FC<RecipeDetailsProps> = ({ recipe: initialRecipe, onClose }) => {
+export const RecipeDetails: React.FC<RecipeDetailsProps> = ({ recipe: initialRecipe, onBack }) => {
   const [recipe, setRecipe] = useState(initialRecipe);
   const [activeTab, setActiveTab] = useState<'ingredients' | 'instructions'>('ingredients');
 
-  // AUTOMATICALLY load image if it's missing (no buttons needed)
+  // AUTOMATICALLY load image if it's missing
   useEffect(() => {
     const loadImage = async () => {
       if (!recipe.image) {
-        // Fallback: Use the recipe title to find an image if one wasn't found during search
-        // We use the first word or two as a robust keyword
-        const keyword = (recipe as any).imageKeyword || recipe.title.split(' ').slice(0, 2).join(' ');
+        // Fallback: Use the recipe title keyword if available, or first 2 words of title
+        const keyword = recipe.imageKeyword || recipe.title.split(' ').slice(0, 2).join(' ');
         const imageUrl = await generateRecipeImage(keyword);
         if (imageUrl) {
           setRecipe(prev => ({ ...prev, image: imageUrl }));
@@ -27,7 +31,7 @@ export const RecipeDetails: React.FC<RecipeDetailsProps> = ({ recipe: initialRec
       }
     };
     loadImage();
-  }, [recipe.id]);
+  }, [recipe.id, recipe.image, recipe.title, recipe.imageKeyword]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
@@ -35,7 +39,7 @@ export const RecipeDetails: React.FC<RecipeDetailsProps> = ({ recipe: initialRec
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={onClose}
+        onClick={onBack}
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
       />
       
@@ -70,7 +74,7 @@ export const RecipeDetails: React.FC<RecipeDetailsProps> = ({ recipe: initialRec
               <Share2 className="w-5 h-5" />
             </button>
             <button 
-              onClick={onClose}
+              onClick={onBack}
               className="p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-md transition-colors border border-white/10"
             >
               <X className="w-5 h-5" />
