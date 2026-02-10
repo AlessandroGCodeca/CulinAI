@@ -1,13 +1,13 @@
-'import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Clock, Flame, ChefHat, ExternalLink, Share2, Heart, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Recipe } from '../types';
-// Fixed import path to match your file name (gemini.ts)
-import { generateRecipeImage } from '../services/gemini';
+// Ensure this points to your actual service file name
+import { generateRecipeImage } from '../services/geminiService';
 
 interface RecipeDetailsProps {
   recipe: Recipe;
-  onBack: () => void; // Changed from onClose to match App.tsx
+  onBack: () => void;
   onStartCooking?: () => void;
   onAddToShoppingList?: (items: string[]) => void;
   onUpdateImage?: (id: string, imageUrl: string) => void;
