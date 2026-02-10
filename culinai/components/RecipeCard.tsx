@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { Clock, Flame, ChefHat, Heart, ChevronRight, CheckCircle2, AlertCircle, Wine } from 'lucide-react';
+import { Clock, Flame, ChefHat, Heart, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Recipe } from '../types';
 
 interface RecipeCardProps {
   recipe: Recipe;
   onClick: () => void;
-  // These were missing in your file, causing the error
   isFavorite?: boolean;
   onToggleFavorite?: (e: React.MouseEvent) => void;
 }
@@ -38,7 +37,6 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, onClick, isFavor
         
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
 
-        {/* Favorite Button */}
         <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-y-[-10px] group-hover:translate-y-0 duration-300">
           <button 
             onClick={onToggleFavorite}
@@ -66,6 +64,18 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, onClick, isFavor
           {recipe.title}
         </h3>
         
+        <div className="flex items-center gap-2 mb-4">
+           {recipe.sourceName && (
+             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200">
+               <span className="text-[10px] font-semibold text-slate-600 truncate max-w-[100px]">
+                 {recipe.sourceName}
+               </span>
+               <div className="w-1 h-1 rounded-full bg-slate-400" />
+               <ChevronRight className="w-3 h-3 text-slate-400" />
+             </div>
+           )}
+        </div>
+
         <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-500 mb-4">
           <div className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
             <Clock className="w-3.5 h-3.5" />
@@ -75,12 +85,6 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, onClick, isFavor
             <Flame className="w-3.5 h-3.5" />
             <span>{recipe.calories}</span>
           </div>
-          {recipe.drinkPairing && (
-             <div className="flex items-center gap-1.5 text-purple-600 bg-purple-50 px-2 py-1 rounded-md" title={recipe.drinkPairing}>
-               <Wine className="w-3.5 h-3.5" />
-               <span className="max-w-[80px] truncate">{recipe.drinkPairing}</span>
-             </div>
-          )}
         </div>
 
         <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between">
