@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
-import { X, ChevronLeft, ChevronRight, CheckCircle2, Play, Timer, ArrowRight } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, CheckCircle2, Timer } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Recipe } from '../types';
-import confetti from 'canvas-confetti';
 
 interface CookingModeProps {
   recipe: Recipe;
   onClose: () => void;
-  // This was missing!
   onComplete: () => void;
 }
 
@@ -27,14 +25,8 @@ export const CookingMode: React.FC<CookingModeProps> = ({ recipe, onClose, onCom
   };
 
   const handleFinish = () => {
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 }
-    });
-    setTimeout(() => {
-        onComplete();
-    }, 2000);
+    // Removed confetti dependency to fix build
+    onComplete();
   };
 
   return (
