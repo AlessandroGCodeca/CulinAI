@@ -60,12 +60,20 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
   });
 };
 
-// --- ROBUST AUTOMATIC IMAGE GENERATOR ---
-export const generateRecipeImage = async (keyword: string, _ignored?: any): Promise<string | null> => {
+// --- IMPROVED IMAGE GENERATOR ---
+export const generateRecipeImage = async (query: string, _ignored?: any): Promise<string | null> => {
     try {
-        // Use Bing's Thumbnail API for reliable, instant, relevant food images
-        const query = encodeURIComponent(`${keyword} food dish`);
-        return `https://tse2.mm.bing.net/th?q=${query}&w=800&h=600&c=7&rs=1&p=0`;
+        // Clean the query to get better results
+        // Remove common filler words to focus on the dish name
+        const cleanQuery = query
+          .replace(/recipe|easy|best|authentic|homemade|quick/gi, '')
+          .trim();
+          
+        const encodedQuery = encodeURIComponent(`${cleanQuery} food plated high quality`);
+        
+        // Use Bing's Thumbnail API
+        // We add a random parameter to the URL to prevent caching if we search the same thing twice
+        return `https://tse2.mm.bing.net/th?q=${encodedQuery}&w=800&h=600&c=7&rs=1&p=0&dpr=2&pid=1.7&mkt=en-US&adlt=moderate`;
     } catch (error) {
         return null;
     }
@@ -93,6 +101,12 @@ export const analyzeFridgeImage = async (base64Images: string[], language: Langu
 };
 
 export const searchRecipes = async (ingredients: string[], filters: DietaryFilters, language: Language = 'en'): Promise<Recipe[]> => {
+  // Pass to the main search function to keep logic consistent
+  // Join ingredients with commas to make a query string
+  return searchRecipesByQuery(ingredients.join(", "), filters, language);
+};
+
+export const searchRecipesByQuery = async (query: string, filters: DietaryFilters, language: Language = 'en'): Promise<Recipe[]> => {
   const activeFilters = Object.entries(filters)
     .filter(([key, isActive]) => key !== 'cuisine' && key !== 'maxPrepTime' && isActive)
     .map(([key]) => key.replace(/([A-Z])/g, ' $1').toLowerCase())
@@ -107,17 +121,17 @@ export const searchRecipes = async (ingredients: string[], filters: DietaryFilte
     : "";
 
   const prompt = `
-    I have these ingredients: ${ingredients.join(", ")}.
-    ${activeFilters ? `I have these dietary restrictions: ${activeFilters}.` : ""}
+    Act as a smart culinary assistant. The user is asking: "${query}".
+    
+    Interpret the intent:
+    - If it's a specific dish (e.g. "Carbonara"), provide 4 DISTINCT variations of that specific dish (e.g. Classic, Creamy, Vegetarian, Modern).
+    - If it's ingredients (e.g. "Chicken, Rice"), provide 4 DISTINCT recipes using them.
+    
+    ${activeFilters ? `Apply these dietary filters strictly: ${activeFilters}.` : ""}
     ${cuisineText}
     ${timeText}
     
-    Please suggest 4 distinct recipes that I can make or almost make.
     IMPORTANT: Provide the response strictly in the ${language} language.
-    
-    For each recipe, compare my ingredients with the recipe requirements and list any essential "missingIngredients".
-    
-    CRITICAL: For each recipe, include a hidden field "imageKeyword" which is a SINGLE english word to describe the dish (e.g. "Pasta", "Pizza", "Soup", "Chicken") for finding a stock photo.
     
     Return the result strictly as a JSON list of objects matching this structure:
     [
@@ -127,9 +141,8 @@ export const searchRecipes = async (ingredients: string[], filters: DietaryFilte
         "description": "Short appetizing description",
         "sourceUrl": "The URL of the recipe source",
         "sourceName": "The name of the website source",
-        "imageKeyword": "OneWordTag",
         "ingredients": [{"name": "ingredient name", "quantity": "amount"}],
-        "missingIngredients": [{"name": "ingredient name", "quantity": "amount"}],
+        "missingIngredients": [{"name": "ingredient name", "quantity": "amount"}], 
         "instructions": ["Step 1...", "Step 2..."],
         "prepTime": "e.g. 30 mins",
         "calories": "e.g. 500 kcal",
@@ -156,28 +169,25 @@ export const searchRecipes = async (ingredients: string[], filters: DietaryFilte
     const text = await generateWithFallback(prompt);
     const recipes = safeJsonParse(text);
 
-    // AUTO-IMAGE FIX: Populate ALL possible image fields
+    // AUTO-IMAGE FIX: Use the specific title for unique images
     const recipesWithImages = await Promise.all(recipes.map(async (recipe: any) => {
-      const keyword = recipe.imageKeyword || recipe.title.split(" ")[0];
-      const imageUrl = await generateRecipeImage(keyword);
+      // Use the full title (minus common words) to get a specific image
+      // e.g. "Classic Spaghetti Carbonara" -> finds a carbonara image, not just "pasta"
+      const imageUrl = await generateRecipeImage(recipe.title);
       return { 
           ...recipe, 
-          image: imageUrl,           // Main field
-          imageUrl: imageUrl,        // Fallback for RecipeCard
-          userImages: imageUrl ? [imageUrl] : [] // Fallback for list views
+          image: imageUrl,           
+          imageUrl: imageUrl,        
+          userImages: [] // FIX: Keep this empty so the "User Photo" badge doesn't appear
       };
     }));
 
     return recipesWithImages;
   } catch (error) {
-    console.error("Error finding recipes:", error);
+    console.error("Error searching recipes:", error);
+    alert("Search Error: " + error);
     return [];
   }
-};
-
-export const searchRecipesByQuery = async (query: string, filters: DietaryFilters, language: Language = 'en'): Promise<Recipe[]> => {
-  // Use the exact same logic as searchRecipes for consistency
-  return searchRecipes([query], filters, language); 
 };
 
 export const getChefTips = async (recipeTitle: string, ingredients: string[], language: Language = 'en'): Promise<string[]> => {
