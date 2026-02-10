@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, Clock, Flame, ChefHat, ExternalLink, Share2, Heart, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Recipe } from '../types';
-// Ensure this points to your actual service file name
-import { generateRecipeImage } from '../services/geminiService';
+// FIX: Pointing to the correct file name "gemini"
+import { generateRecipeImage } from '../services/gemini';
 
 interface RecipeDetailsProps {
   recipe: Recipe;
@@ -21,7 +21,7 @@ export const RecipeDetails: React.FC<RecipeDetailsProps> = ({ recipe: initialRec
   // AUTOMATICALLY load image if it's missing
   useEffect(() => {
     const loadImage = async () => {
-      if (!recipe.image) {
+      if (!recipe.image && !recipe.imageUrl) {
         // Fallback: Use the recipe title keyword if available, or first 2 words of title
         const keyword = recipe.imageKeyword || recipe.title.split(' ').slice(0, 2).join(' ');
         const imageUrl = await generateRecipeImage(keyword);
@@ -31,7 +31,7 @@ export const RecipeDetails: React.FC<RecipeDetailsProps> = ({ recipe: initialRec
       }
     };
     loadImage();
-  }, [recipe.id, recipe.image, recipe.title, recipe.imageKeyword]);
+  }, [recipe.id, recipe.image, recipe.imageUrl, recipe.title, recipe.imageKeyword]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
@@ -51,9 +51,9 @@ export const RecipeDetails: React.FC<RecipeDetailsProps> = ({ recipe: initialRec
       >
         {/* Header Image Section */}
         <div className="relative h-64 sm:h-80 shrink-0 overflow-hidden group">
-          {recipe.image ? (
+          {recipe.image || recipe.imageUrl ? (
             <img 
-              src={recipe.image} 
+              src={recipe.image || recipe.imageUrl} 
               alt={recipe.title} 
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
