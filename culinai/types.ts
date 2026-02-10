@@ -1,5 +1,4 @@
 // --- Navigation & State ---
-// Combined list of ALL possible screens used in App.tsx
 export type ViewState = 
   | 'search' | 'chef' | 'history' | 'shopping' | 'auth' 
   | 'home' | 'recipes' | 'chat' | 'recipe-details' | 'cooking';
@@ -13,14 +12,13 @@ export type ShoppingItem = {
 export type SavedSearch = {
   id: string;
   query: string;
-  date?: Date;         // Optional
-  timestamp?: number;  // Added to fix build error in App.tsx
+  date?: Date;
+  timestamp?: number;
   filters?: DietaryFilters; 
 };
 
 export type UserProfile = {
   name: string;
-  // Made optional to fix AuthScreen build error
   dietaryPreferences?: DietaryFilters;
   favorites?: string[];
   secretKey?: string; 
@@ -60,6 +58,9 @@ export interface Recipe {
   protein: string;
   carbs: string;
   fat: string;
+  
+  // New Feature: AI Sommelier
+  drinkPairing?: string; 
   
   // Optional Nutrition
   fiber?: string;       
