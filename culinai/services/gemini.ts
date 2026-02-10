@@ -61,15 +61,11 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 };
 
 // --- ROBUST AUTOMATIC IMAGE GENERATOR ---
-// Updated to accept any arguments but always return high quality
-// This fixes the "Expected 1 arguments" build error
 export const generateRecipeImage = async (keyword: string, _ignored?: any): Promise<string | null> => {
     try {
         // Use Bing's Thumbnail API for reliable, instant, relevant food images
-        // We add "food" to ensure we don't get random objects
-        // We assume "High Quality" by default
         const query = encodeURIComponent(`${keyword} food dish`);
-        return `https://tse2.mm.bing.net/th?q=${query}&w=1024&h=768&c=7&rs=1&p=0`;
+        return `https://tse2.mm.bing.net/th?q=${query}&w=800&h=600&c=7&rs=1&p=0`;
     } catch (error) {
         return null;
     }
@@ -160,135 +156,50 @@ export const searchRecipes = async (ingredients: string[], filters: DietaryFilte
     const text = await generateWithFallback(prompt);
     const recipes = safeJsonParse(text);
 
-    // AUTO-IMAGE: Use the AI-provided simple keyword
+    // AUTO-IMAGE FIX: Populate ALL possible image fields
     const recipesWithImages = await Promise.all(recipes.map(async (recipe: any) => {
-      // Fallback to title if AI missed the keyword
       const keyword = recipe.imageKeyword || recipe.title.split(" ")[0];
       const imageUrl = await generateRecipeImage(keyword);
-      return { ...recipe, image: imageUrl };
+      return { 
+          ...recipe, 
+          image: imageUrl,           // Main field
+          imageUrl: imageUrl,        // Fallback for RecipeCard
+          userImages: imageUrl ? [imageUrl] : [] // Fallback for list views
+      };
     }));
 
     return recipesWithImages;
   } catch (error) {
     console.error("Error finding recipes:", error);
-    alert("Recipe Error: " + error);
     return [];
   }
 };
 
 export const searchRecipesByQuery = async (query: string, filters: DietaryFilters, language: Language = 'en'): Promise<Recipe[]> => {
-  const activeFilters = Object.entries(filters)
-    .filter(([key, isActive]) => key !== 'cuisine' && key !== 'maxPrepTime' && isActive)
-    .map(([key]) => key.replace(/([A-Z])/g, ' $1').toLowerCase())
-    .join(", ");
-
-  const cuisineText = filters.cuisine && filters.cuisine.length > 0 
-    ? `Strictly restrict results to these cuisines: ${filters.cuisine.join(", ")}.`
-    : "";
-
-  const timeText = filters.maxPrepTime && filters.maxPrepTime !== 'any'
-    ? `Strictly restrict recipes to have a total prep+cook time of under ${filters.maxPrepTime} minutes.`
-    : "";
-
-  const prompt = `
-    Act as a smart culinary assistant. The user is asking: "${query}".
-    
-    Interpret the intent of this query, looking for:
-    - Ingredients (e.g. "chicken", "broccoli")
-    - Dietary preferences (e.g. "low carb", "keto")
-    - Time constraints (e.g. "under 30 mins")
-    - Meal types (e.g. "dinner", "snack")
-    
-    ${activeFilters ? `Also apply these checkbox filters from the app: ${activeFilters}.` : ""}
-    ${cuisineText}
-    ${timeText}
-    
-    Use Google Search (simulated) to find 4 high-quality, real recipes that best match these criteria. Include specific quantities for ingredients.
-    IMPORTANT: Provide the response strictly in the ${language} language.
-    
-    CRITICAL: For each recipe, include a hidden field "imageKeyword" which is a SINGLE english word to describe the dish (e.g. "Pasta", "Pizza", "Soup", "Chicken") for finding a stock photo.
-    
-    Return the result strictly as a JSON list of objects matching this structure:
-    [
-      {
-        "id": "unique_id",
-        "title": "Recipe Title",
-        "description": "Short appetizing description",
-        "sourceUrl": "The URL of the recipe source",
-        "sourceName": "The name of the website source",
-        "imageKeyword": "OneWordTag",
-        "ingredients": [{"name": "ingredient name", "quantity": "amount"}],
-        "missingIngredients": [{"name": "ingredient name", "quantity": "amount"}], 
-        "instructions": ["Step 1...", "Step 2..."],
-        "prepTime": "e.g. 30 mins",
-        "calories": "e.g. 500 kcal",
-        "protein": "e.g. 30g",
-        "carbs": "e.g. 45g",
-        "fat": "e.g. 15g",
-        "fiber": "e.g. 5g",
-        "sugar": "e.g. 10g",
-        "sodium": "e.g. 500mg",
-        "cholesterol": "e.g. 30mg",
-        "potassium": "e.g. 400mg",
-        "vitaminA": "e.g. 10% DV",
-        "vitaminC": "e.g. 15% DV",
-        "calcium": "e.g. 20% DV",
-        "iron": "e.g. 5% DV",
-        "difficulty": "Easy" | "Medium" | "Hard",
-        "dietaryTags": ["Vegetarian", "Keto", etc],
-        "tips": ["Tip 1", "Tip 2"]
-      }
-    ]
-  `;
-
-  try {
-    const text = await generateWithFallback(prompt);
-    const recipes = safeJsonParse(text);
-
-    // AUTO-IMAGE: Use the AI-provided simple keyword
-    const recipesWithImages = await Promise.all(recipes.map(async (recipe: any) => {
-      // Fallback to title if AI missed the keyword
-      const keyword = recipe.imageKeyword || recipe.title.split(" ")[0];
-      const imageUrl = await generateRecipeImage(keyword);
-      return { ...recipe, image: imageUrl };
-    }));
-
-    return recipesWithImages;
-  } catch (error) {
-    console.error("Error searching recipes:", error);
-    alert("Search Error: " + error);
-    return [];
-  }
+  // Use the exact same logic as searchRecipes for consistency
+  return searchRecipes([query], filters, language); 
 };
 
 export const getChefTips = async (recipeTitle: string, ingredients: string[], language: Language = 'en'): Promise<string[]> => {
     const prompt = `
     Provide 3 professional, concise chef's tips for making "${recipeTitle}". 
-    Focus on technique, flavor enhancement, or avoiding common pitfalls. 
-    Context: Ingredients include ${ingredients.join(', ')}.
-    
     IMPORTANT: Provide the tips strictly in the ${language} language.
-    Return strictly a JSON array of strings. Do not use Markdown.
-    Example: ["Sear the meat at high heat.", "Use fresh herbs for garnish."]
+    Return strictly a JSON array of strings.
     `;
-    
     try {
         const text = await generateWithFallback(prompt);
         return safeJsonParse(text);
     } catch (error) {
-        console.error("Error fetching tips:", error);
         return [];
     }
-};
-
-export const generateSpeech = async (_text: string): Promise<ArrayBuffer | null> => {
-    return null; 
 };
 
 export const createChefChat = (language: Language = 'en') => {
   const model = genAI.getGenerativeModel({ 
     model: "gemini-2.0-flash", 
-    systemInstruction: `You are CulinAI, a world-class chef and culinary assistant. Help users with cooking tips, substitutions, and techniques. Be concise and encouraging. IMPORTANT: You must reply in the ${language} language.`
+    systemInstruction: `You are CulinAI, a world-class chef. Help users with cooking tips. Be concise. Reply in ${language}.`
   });
   return model.startChat();
 };
+
+export const generateSpeech = async (_text: string): Promise<ArrayBuffer | null> => { return null; };
