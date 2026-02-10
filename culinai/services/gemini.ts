@@ -4,7 +4,7 @@ import { Recipe, DietaryFilters, Language } from "../types";
 // Setup API
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
-// 1. Text Models (Your working list)
+// Text Models (Your working list)
 const TEXT_MODELS = ["gemini-2.0-flash", "gemini-2.5-flash"];
 
 // --- SMART HELPER: Tries models one by one ---
@@ -34,19 +34,17 @@ async function generateWithFallback(prompt: string | any[], systemInstruction?: 
   throw new Error(`All models failed. Last error: ${lastError?.message}`);
 }
 
-// Helper to reliably parse JSON even if the AI adds weird formatting
+// Helper to reliably parse JSON
 const safeJsonParse = (text: string) => {
   try {
-    // 1. Remove Markdown code blocks
     let cleanText = text.replace(/```json\n?|```/g, '').trim();
-    // 2. Sometimes AI cuts off the end, try to close it if missing
     if (!cleanText.endsWith(']') && cleanText.startsWith('[')) {
         cleanText += ']';
     }
     return JSON.parse(cleanText);
   } catch (e) {
     console.error("JSON Parse Error:", e);
-    return []; // Return empty array safely instead of crashing
+    return []; 
   }
 };
 
@@ -243,17 +241,15 @@ export const getChefTips = async (recipeTitle: string, ingredients: string[], la
     }
 };
 
-// --- GUARANTEED IMAGE GENERATION FIX ---
+// --- STOCK PHOTO FIX (Unlimited) ---
 export const generateRecipeImage = async (title: string, size: '1K' | '2K' | '4K' = '1K'): Promise<string | null> => {
     try {
-        // Clean the title for the URL
-        const cleanTitle = encodeURIComponent(title.trim());
-        // Use Pollinations.ai (No API key needed, extremely reliable for food images)
-        // We add "professional food photography" to prompt for quality
-        const imageUrl = `https://image.pollinations.ai/prompt/delicious ${cleanTitle} plated dish, professional food photography, 4k, studio lighting, highly detailed?nologo=true&seed=${Math.floor(Math.random() * 1000)}`;
-        
-        // Return the URL directly - your app's <img src> will handle it perfectly
-        return imageUrl;
+        // Clean title
+        const cleanTitle = title.split('with')[0].split('and')[0].trim();
+        // Use LoremFlickr (Robust, free stock photos of food)
+        // We add a random number to ensure different recipes get different images
+        const randomId = Math.floor(Math.random() * 1000);
+        return `https://loremflickr.com/800/600/food,dinner,${encodeURIComponent(cleanTitle)}?random=${randomId}`;
     } catch (error) {
         console.error("Image generation error:", error);
         return null;
