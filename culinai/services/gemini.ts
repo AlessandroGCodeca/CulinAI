@@ -60,14 +60,16 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
   });
 };
 
-// --- ROBUST IMAGE GENERATOR (Now Backward Compatible) ---
-// Accepts 'size' but ignores it to prevent build errors
-export const generateRecipeImage = async (keyword: string, _size?: string): Promise<string | null> => {
+// --- ROBUST AUTOMATIC IMAGE GENERATOR ---
+// Updated to accept any arguments but always return high quality
+// This fixes the "Expected 1 arguments" build error
+export const generateRecipeImage = async (keyword: string, _ignored?: any): Promise<string | null> => {
     try {
         // Use Bing's Thumbnail API for reliable, instant, relevant food images
         // We add "food" to ensure we don't get random objects
+        // We assume "High Quality" by default
         const query = encodeURIComponent(`${keyword} food dish`);
-        return `https://tse2.mm.bing.net/th?q=${query}&w=800&h=600&c=7&rs=1&p=0`;
+        return `https://tse2.mm.bing.net/th?q=${query}&w=1024&h=768&c=7&rs=1&p=0`;
     } catch (error) {
         return null;
     }
