@@ -3,7 +3,13 @@ import { Send, ChefHat, User, Sparkles } from 'lucide-react';
 import { createChefChat } from '../services/gemini';
 import { motion } from 'framer-motion';
 
-export const ChatBot: React.FC = () => {
+// FIX: Define the props that App.tsx is trying to pass
+interface ChatBotProps {
+  initialMessage?: string;
+  onClearInitialMessage?: () => void;
+}
+
+export const ChatBot: React.FC<ChatBotProps> = ({ initialMessage, onClearInitialMessage }) => {
   const [messages, setMessages] = useState<{role: 'user' | 'model', text: string}[]>([
     { role: 'model', text: 'Hello! I am CulinAI. Ask me anything about cooking, ingredients, or techniques!' }
   ]);
@@ -11,6 +17,7 @@ export const ChatBot: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const chatRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const hasSentInitialRef = useRef(false);
 
   // Initialize Chat
   useEffect(() => {
@@ -18,6 +25,30 @@ export const ChatBot: React.FC = () => {
       chatRef.current = createChefChat('en');
     }
   }, []);
+
+  // Handle Initial Message (e.g. "How do I make this vegan?")
+  useEffect(() => {
+    const sendInitial = async () => {
+      if (initialMessage && chatRef.current && !hasSentInitialRef.current && !loading) {
+        hasSentInitialRef.current = true;
+        // Add user message immediately
+        setMessages(prev => [...prev, { role: 'user', text: initialMessage }]);
+        setLoading(true);
+        
+        try {
+          const result = await chatRef.current.sendMessage(initialMessage);
+          const response = await result.response;
+          setMessages(prev => [...prev, { role: 'model', text: response.text() }]);
+        } catch (error) {
+          setMessages(prev => [...prev, { role: 'model', text: "I'm having trouble connecting right now." }]);
+        } finally {
+          setLoading(false);
+          if (onClearInitialMessage) onClearInitialMessage();
+        }
+      }
+    };
+    sendInitial();
+  }, [initialMessage, onClearInitialMessage, loading]);
 
   // Auto-scroll to bottom
   useEffect(() => {
