@@ -60,9 +60,9 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
   });
 };
 
-// --- ROBUST IMAGE GENERATOR ---
-// Uses the AI-generated keyword to find a guaranteed image match
-export const generateRecipeImage = async (keyword: string): Promise<string | null> => {
+// --- ROBUST IMAGE GENERATOR (Now Backward Compatible) ---
+// Accepts 'size' but ignores it to prevent build errors
+export const generateRecipeImage = async (keyword: string, _size?: string): Promise<string | null> => {
     try {
         // Use Bing's Thumbnail API for reliable, instant, relevant food images
         // We add "food" to ensure we don't get random objects
